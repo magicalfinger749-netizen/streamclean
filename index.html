@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamClean - Ad‑Free Streaming Service</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="page-container">
+        <!-- Header / Branding -->
+        <header class="brand-header">
+            <h1 class="brand-title">StreamClean</h1>
+            <p class="brand-subtitle">Watch Any Video — 100% Ad‑Free & Secure</p>
+        </header>
+
+        <!-- Central Searchbar Section -->
+        <section class="search-section">
+            <div class="glass-card search-container">
+                <input 
+                    type="url" 
+                    id="streamUrl" 
+                    class="search-input" 
+                    placeholder="Paste video link here..."
+                    required
+                >
+                <button id="streamBtn" class="stream-button">Stream Cleanly</button>
+            </div>
+        </section>
+
+        <!-- Absolute Ad‑Shield Video Container -->
+        <section class="player-section">
+            <div class="glass-card player-container">
+                <iframe 
+                    id="adShieldPlayer"
+                    class="player-frame"
+                    sandbox="allow-scripts allow-same-origin allow-presentation"
+                    title="StreamClean Secure Player"
+                    allow="autoplay; fullscreen; encrypted-media"
+                >
+                    <p class="placeholder-text">Your secure stream will load here — no pop‑ups, no redirects, no ads.</p>
+                </iframe>
+            </div>
+        </section>
+    </div>
+
+    <!-- Basic Frontend Logic -->
+    <script>
+        const streamInput = document.getElementById('streamUrl');
+        const streamBtn = document.getElementById('streamBtn');
+        const playerFrame = document.getElementById('adShieldPlayer');
+
+        streamBtn.addEventListener('click', () => {
+            const link = streamInput.value.trim();
+            if (!link) {
+                alert('⚠️ Please paste a valid video link first.');
+                return;
+            }
+
+            // Load source safely — sandbox blocks redirects/popups automatically
+            playerFrame.src = link;
+            playerFrame.setAttribute('src', link);
+        });
+
+        // Allow Enter key to trigger stream
+        streamInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') streamBtn.click();
+        });
+    </script>
+</body>
+</html>/* === BASE RESET & GLOBAL SETTINGS === */
