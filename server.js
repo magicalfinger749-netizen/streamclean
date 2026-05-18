@@ -22,7 +22,7 @@ const STRIPE_LINK = "https://buy.stripe.com/aFa6oHarE6aa10N3M9bQY00";
 // --------------------------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, '/'))); // ✅ SAFEST PATH SETTING
+app.use(express.static(__dirname, { index: "index.html" }));
 
 // --------------------------
 // ✅ DATABASE
