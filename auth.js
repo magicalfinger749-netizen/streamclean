@@ -75,5 +75,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Run check on page load
         updateUIforLoggedInUser();
-    }, 100);
+    }, 100);// === UPDATE SUBSCRIPTION STATUS AFTER PAYMENT ===
+window.updateSubscription = function(email) {
+    const allUsers = JSON.parse(localStorage.getItem('streamclean_users')) || [];
+    const updatedUsers = allUsers.map(u => {
+        if (u.email === email) {
+            u.subscribed = true;
+            alert('✅ Payment confirmed! Unlimited access unlocked.');
+        }
+        return u;
+    });
+    localStorage.setItem('streamclean_users', JSON.stringify(updatedUsers));
+    // Update current user if logged in
+    const current = JSON.parse(localStorage.getItem('streamclean_currentUser'));
+    if (current && current.email === email) {
+        current.subscribed = true;
+        localStorage.setItem('streamclean_currentUser', JSON.stringify(current));
+    }
+};
 });
