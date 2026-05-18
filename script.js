@@ -342,3 +342,23 @@ function buildLegalNotice() {
 // YOUTUBE API LOADER
 // --------------------------
 window.onYouTubeIframeAPIReady = () => {};
+// ADD THIS FUNCTION TO YOUR script.js:
+
+// When user clicks subscribe OR after payment, mark them as subscribed
+async function activateSubscription(email) {
+    const res = await fetch('/mark-subscribed', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({email: email})
+    });
+    const data = await res.json();
+    alert(data.message);
+}
+
+// ALSO: When they come back from Stripe payment, auto-send email:
+window.addEventListener('load', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('success') === 'true' && currentUser) {
+        activateSubscription(currentUser.email);
+    }
+});
