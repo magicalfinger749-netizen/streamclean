@@ -2,6 +2,7 @@
 // ✅ STREAMCLEAN – FULL BACKEND
 // ✅ FEATURES: Real Email Verification + Thank You Email After Subscription
 // ✅ Sends emails to inbox with links & full details
+// ✅ NEW: Profile / Account Details Page
 // ==================================================
 
 const express = require('express');
@@ -59,13 +60,14 @@ app.post('/create-account', async (req, res) => {
     const db = getDB();
     if (db.users.some(u => u.email === email)) return res.json({success:false, error:"Email already registered"});
 
-    // Save new user
+    // Save new user WITH CREATED DATE
     const newUser = {
         email,
         password,
         subscribed: false,
         verified: false,
-        joinDate: new Date().toISOString()
+        joinDate: new Date().toISOString(),
+        subscriptionStart: null // ✅ Will fill when they subscribe
     };
     db.users.push(newUser);
     saveDB(db);
@@ -120,7 +122,7 @@ app.get('/verify', (req, res) => {
     res.send(`
         <h1>✅ Email Verified!</h1>
         <p>Welcome to StreamClean — you’re all set!</p>
-        <a href="/">Go to Dashboard</a>
+        <a href="/dashboard.html">Go to Dashboard</a>
     `);
 });
 
@@ -180,7 +182,7 @@ app.post('/update-password', (req, res) => {
 });
 
 // --------------------------
-// ✅ SUBSCRIBE + THANK YOU EMAIL
+// ✅ SUBSCRIBE + THANK YOU EMAIL + SAVE SUBSCRIPTION DATE
 // --------------------------
 app.post('/subscribe', async (req, res) => {
     const { email } = req.body;
@@ -188,10 +190,17 @@ app.post('/subscribe', async (req, res) => {
     let user = db.users.find(u => u.email === email);
 
     if (!user) {
-        user = { email, subscribed: true, verified: true, joinDate: new Date().toISOString() };
+        user = { 
+            email, 
+            subscribed: true, 
+            verified: true, 
+            joinDate: new Date().toISOString(),
+            subscriptionStart: new Date().toISOString() // ✅ SAVE START DATE
+        };
         db.users.push(user);
     } else {
         user.subscribed = true;
+        user.subscriptionStart = new Date().toISOString(); // ✅ UPDATE DATE
     }
     saveDB(db);
 
@@ -220,6 +229,70 @@ app.post('/subscribe', async (req, res) => {
     }
 
     res.json({success:true, message:"✅ Subscribed!"});
+});
+
+// --------------------------
+// ✅ ACCOUNT DETAILS / PROFILE ROUTE
+// --------------------------
+app.get('/account', (req, res) => {
+    const email = req.query.email; // ✅ Passed from dashboard/profile link
+    if (!email) return res.send("❌ Please log in first");
+
+    const db = getDB();
+    const user = db.users.find(u => u.email === email);
+    if (!user) return res.send("❌ Account not found");
+
+    // Format dates nicely
+    const createdDate = new Date(user.joinDate).toLocaleString();
+    const subDate = user.subscriptionStart ? new Date(user.subscriptionStart).toLocaleString() : "Not subscribed yet";
+
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>StreamClean - Account Details</title>
+            <style>
+                body { font-family: Arial; background: #0b0c10; color: #c5c6c7; padding: 30px; }
+                .container { max-width: 600px; margin: auto; background: #1f2833; padding: 30px; border-radius: 12px; box-shadow: 0 0 20px rgba(0,0,0,0.3); }
+                h1 { color: #66fcf1; text-align: center; }
+                .detail { padding: 15px 0; border-bottom: 1px solid #45a29e; }
+                .label { font-weight: bold; color: #66fcf1; }
+                a { color: #66fcf1; text-decoration: none; display: inline-block; margin-top: 20px; }
+                .profile-link { position: absolute; top: 20px; right: 30px; background: #45a29e; padding: 8px 16px; border-radius: 20px; }
+            </style>
+        </head>
+        <body>
+            <!-- ✅ PROFILE LINK IN CORNER -->
+            <a href="/account?email=${email}" class="profile-link">👤 My Profile</a>
+
+            <div class="container">
+                <h1>👤 Account Details</h1>
+
+                <div class="detail">
+                    <div class="label">Your Email:</div>
+                    <div>${user.email}</div>
+                </div>
+
+                <div class="detail">
+                    <div class="label">Account Created:</div>
+                    <div>${createdDate}</div>
+                </div>
+
+                <div class="detail">
+                    <div class="label">Subscription Started:</div>
+                    <div>${subDate}</div>
+                </div>
+
+                <div class="detail">
+                    <div class="label">Status:</div>
+                    <div>${user.verified ? "✅ Verified" : "❌ Not Verified"} | ${user.subscribed ? "⭐ Premium Member" : "🆓 Free User"}</div>
+                </div>
+
+                <a href="/dashboard.html">← Back to Dashboard</a>
+            </div>
+        </body>
+        </html>
+    `);
 });
 
 // --------------------------
