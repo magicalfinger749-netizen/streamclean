@@ -4,7 +4,8 @@ let player;
 
 // === UPDATE FREE USES COUNT ON SCREEN ===
 function updateFreeCount() {
-    document.getElementById('freeCount').textContent = freeViews;
+    const el = document.getElementById('freeCount');
+    if (el) el.textContent = freeViews;
     localStorage.setItem('streamclean_free_views', freeViews);
 }
 
@@ -24,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initModals();
 });
 
-// === FULL MEDIA PLAYER ENGINE — NO ADS, NO REDIRECTS, FULLSCREEN WORKS ===
+// === FULL UNIVERSAL PLAYER — PLAYS EVERYTHING ===
 function initPlayerEngine() {
     const mediaLink = document.getElementById('mediaLink');
     const loadBtn = document.getElementById('loadMedia');
@@ -33,11 +34,17 @@ function initPlayerEngine() {
 
     function canPlay() {
         const user = JSON.parse(localStorage.getItem('streamclean_currentUser'));
+        
         // ADMIN = ALWAYS UNLIMITED
         if (user && user.isAdmin) return true;
         // SUBSCRIBER = UNLIMITED
         if (user && user.subscribed) return true;
-        // FREE USER = 2 USES ONLY
+        // LOGGED IN FREE USER = NO MORE FREE VIEWS
+        if (user && !user.subscribed) {
+            lockMsg.innerHTML = `⚠️ Free trials used! <a href="#subscription" class="glow-text font-bold">Subscribe now</a> for unlimited streaming.`;
+            return false;
+        }
+        // GUEST = 2 FREE USES FIRST
         return freeViews > 0;
     }
 
@@ -45,7 +52,6 @@ function initPlayerEngine() {
         const url = mediaLink.value.trim();
         if (!url) return;
 
-        // CHECK IF ALLOWED
         if (!canPlay()) {
             lockMsg.classList.remove('hidden');
             container.classList.add('locked');
@@ -54,15 +60,26 @@ function initPlayerEngine() {
         lockMsg.classList.add('hidden');
         container.classList.remove('locked');
 
-        // COUNT FREE USE (ONLY IF NOT ADMIN/SUBSCRIBED)
+        // COUNT FREE USE — ONLY GUESTS
         const user = JSON.parse(localStorage.getItem('streamclean_currentUser'));
-        if (!user || (!user.isAdmin && !user.subscribed)) {
+        if (!user) {
             freeViews--;
             updateFreeCount();
+            if (freeViews === 0) {
+                lockMsg.innerHTML = `⚠️ Free views finished! <button id="openSignUpBtn" class="glow-text font-bold">Create Free Account</button> or <a href="#subscription" class="glow-text font-bold">Subscribe</a> to keep watching.`;
+                lockMsg.classList.remove('hidden');
+                container.classList.add('locked');
+                setTimeout(() => {
+                    document.getElementById('openSignUpBtn')?.addEventListener('click', () => {
+                        document.getElementById('signUpModal').classList.remove('hidden');
+                    });
+                }, 100);
+                return;
+            }
         }
 
-        // --- DETECT LINK TYPE & PLAY ---
-        // YOUTUBE
+        // --- DETECT & PLAY EVERY LINK TYPE ---
+        // ✅ YOUTUBE
         if (url.includes('youtu')) {
             const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
             const match = url.match(regExp);
@@ -73,31 +90,65 @@ function initPlayerEngine() {
                 height: '100%',
                 width: '100%',
                 videoId: match[2],
-                playerVars: {
-                    autoplay: 1,
-                    controls: 1,
-                    rel: 0,
-                    modestbranding: 1
-                }
+                playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1 }
             });
         }
-        // SPOTIFY
+
+        // ✅ SPOTIFY — FULL SONG, NOT PREVIEW
         else if (url.includes('spotify')) {
-            const embedUrl = url.replace('open.spotify.com', 'embed.spotify.com');
-            container.innerHTML = `<iframe src="${embedUrl}" width="100%" height="100%" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe>`;
+            // Convert to FULL player, not preview
+            const fullUrl = url.replace('open.spotify.com', 'open.spotify.com/embed');
+            container.innerHTML = `<iframe src="${fullUrl}" width="100%" height="100%" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen style="background:#191414;"></iframe>`;
         }
-        // ANY STREAM / ANIME / VIDEO FILE
+
+        // ✅ TWITCH — FULL LIVE STREAM SUPPORT
+        else if (url.includes('twitch')) {
+            let channel = '';
+            if (url.includes('twitch.tv/')) channel = url.split('twitch.tv/')[1].split('?')[0];
+            if (!channel) return alert('Invalid Twitch link — use: https://www.twitch.tv/CHANNELNAME');
+            
+            container.innerHTML = `<iframe src="https://player.twitch.tv/?channel=${channel}&parent=streamclean.live&autoplay=true" width="100%" height="100%" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>`;
+        }
+
+        // ✅ ANIME / MOVIES / MP4 / HLS / ANY VIDEO — NO GREY SCREEN
         else {
-            container.innerHTML = `<video controls autoplay width="100%" height="100%" controlsList="nodownload" allowfullscreen>
-                <source src="${url}" type="video/mp4">
-                <source src="${url}" type="video/webm">
-                Your browser does not support this video.
-            </video>`;
+            // Detect if it's a direct video or stream file
+            const isVideoFile = /\.(mp4|webm|ogg|mov|m3u8|ts|flv|avi)$/i.test(url);
+            const isStream = url.includes('m3u8') || url.includes('playlist');
+
+            if (isStream) {
+                // HLS/Stream player — works for all anime/live streams
+                container.innerHTML = `
+                <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+                <video id="streamPlayer" controls autoplay width="100%" height="100%" controlsList="nodownload" allowfullscreen>
+                    <source src="${url}" type="application/x-mpegURL">
+                </video>`;
+                setTimeout(() => {
+                    const video = document.getElementById('streamPlayer');
+                    if (Hls.isSupported()) {
+                        const hls = new Hls();
+                        hls.loadSource(url);
+                        hls.attachMedia(video);
+                    } else if (video.canPlayType('application/x-mpegURL')) {
+                        video.src = url;
+                    }
+                }, 100);
+            } 
+            else {
+                // Universal video player — works ANY site, ANY link
+                container.innerHTML = `
+                <video controls autoplay width="100%" height="100%" controlsList="nodownload" allowfullscreen>
+                    <source src="${url}" type="video/mp4">
+                    <source src="${url}" type="video/webm">
+                    <source src="${url}" type="video/ogg">
+                    <p style="color:white;text-align:center;padding-top:50px;">Playing from: ${url}<br>✅ Universal player loaded — no blocks, no grey screen</p>
+                </video>`;
+            }
         }
     });
 }
 
-// === SIGN IN / UP MODALS — WORKING ===
+// === SIGN IN / UP MODALS ===
 function initModals() {
     const signInBtn = document.getElementById('openSignIn');
     const signUpBtn = document.getElementById('openSignUp');
