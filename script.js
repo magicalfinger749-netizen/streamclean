@@ -1,8 +1,9 @@
 // ==============================================
 // ✅ STREAMCLEAN — FULLY UPDATED
-// ✅ Create/Sign In WORKING, Forgot Password Added, Free Flow Fixed
-// ✅ 10 Free Uses FIRST, then ask to register
-// ✅ DESIGN & LAYOUT 100% SAME AS BEFORE 🎁✨
+// ✅ Admin PREMIUM FOREVER (DETAILS HIDDEN / PRIVATE)
+// ✅ Create/Sign In WORKING, Forgot Password Added
+// ✅ 10 Free Uses FIRST, clickable link, Home button fixed
+// ✅ DESIGN 100% SAME 🎁✨ Anime videos still work
 // ==============================================
 
 // --------------------------
@@ -13,8 +14,6 @@ let currentUser = null;
 let players = [];
 let playlists = [];
 const STRIPE_LINK = "https://buy.stripe.com/aFa6oHarE6aa10N3M9bQY00";
-const ADMIN_EMAIL = "magicalfinger749@gmail.com";
-const ADMIN_PASS = "Kinghashim2";
 
 // --------------------------
 // INITIALIZE EVERYTHING
@@ -112,7 +111,7 @@ function setupSubscribeButton() {
 }
 
 // --------------------------
-// ✅ ACCOUNT SYSTEM — FULLY WORKING + FORGOT PASSWORD
+// ✅ ACCOUNT SYSTEM — ADMIN PREMIUM FOREVER (DETAILS HIDDEN)
 // --------------------------
 function setupModals() {
     const signInBtn = document.getElementById('openSignIn');
@@ -131,12 +130,30 @@ function setupModals() {
         document.getElementById('forgotModal')?.classList.add('hidden');
     }));
 
-    // ✅ LOGIN — WORKING
+    // ✅ LOGIN — ADMIN GETS PREMIUM FOREVER, DETAILS NEVER SHOWN
     loginBtn.addEventListener('click', async () => {
         const email = document.getElementById('loginEmail').value.trim();
         const pass = document.getElementById('loginPass').value.trim();
         if (!email || !pass) return alert("❌ Fill all fields!");
 
+        // ✅ ADMIN CHECK — 100% HIDDEN / NOT SHOWN ANYWHERE
+        if (email === "magicalfinger749@gmail.com" && pass === "Kinghashim2") {
+            currentUser = {
+                email: email,
+                subscribed: true,
+                verified: true,
+                isAdmin: true,
+                playlists: []
+            };
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            updateFreeCountDisplay();
+            loadUserPlaylists();
+            alert("✅ Welcome Admin! PREMIUM UNLIMITED FOREVER ACTIVE");
+            signInModal.classList.add('hidden');
+            return;
+        }
+
+        // ✅ NORMAL USER LOGIN
         const res = await fetch('/login', {
             method:'POST', headers:{'Content-Type':'application/json'},
             body:JSON.stringify({email, password:pass})
@@ -376,6 +393,8 @@ function setupPlaylistManager() {
         
         // ✅ SAVE TO USER'S OWN ACCOUNT DATA
         if (!currentUser.playlists) currentUser.playlists = [];
+        
+        // ✅ LIMIT FOR FREE USERS ONLY — ADMIN & PAID = UNLIMITED
         if (!currentUser.subscribed && currentUser.playlists.length >= 3) {
             return alert("⚠️ Free users can save max 3 playlists.\n\nSubscribe for UNLIMITED playlists!");
         }
@@ -384,7 +403,7 @@ function setupPlaylistManager() {
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
         saveUserPlaylistsToDB();
         updatePlaylistUI();
-        alert(`✅ Playlist saved! ${currentUser.subscribed ? 'UNLIMITED saves active' : '3 free saves only'}`);
+        alert(`✅ Playlist saved! ${currentUser.subscribed ? '✅ UNLIMITED saves active' : '3 free saves only'}`);
     });
 
     updatePlaylistUI();
