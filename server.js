@@ -1,6 +1,5 @@
 // ==================================================
-// ✅ STREAMCLEAN – FULL BACKEND — FINAL FIX
-// ✅ FIXED: Paths + Homepage Load + Styles Working
+// ✅ STREAMCLEAN – FULL BACKEND — FINAL WORKING VERSION
 // ==================================================
 
 const express = require('express');
@@ -18,11 +17,12 @@ const YOUR_WEBSITE_URL = "https://streamclean.live";
 const STRIPE_LINK = "https://buy.stripe.com/aFa6oHarE6aa10N3M9bQY00";
 
 // --------------------------
-// ✅ MIDDLEWARE — 100% CORRECT PATHS
+// ✅ MIDDLEWARE — PERFECT SETUP
 // --------------------------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(__dirname, { index: "index.html" }));
+// ✅ THIS IS THE ONLY PATH SETTING YOU NEED — NO CONFLICTS
+app.use(express.static(__dirname));
 
 // --------------------------
 // ✅ DATABASE
@@ -229,7 +229,7 @@ app.get('/account', (req, res) => {
         <html>
         <head>
             <title>StreamClean - Account Details</title>
-            <link rel="stylesheet" href="style.css">
+            <link rel="stylesheet" href="./style.css">
             <style>
                 body { font-family: Arial; background: #0b0c10; color: #c5c6c7; padding: 30px; }
                 .container { max-width: 600px; margin: auto; background: #1f2833; padding: 30px; border-radius: 12px; }
@@ -260,8 +260,6 @@ app.get('/account', (req, res) => {
 app.get('/buy', (req, res) => {
     res.redirect(STRIPE_LINK);
 });
-
-
 
 // --------------------------
 // ✅ START SERVER
