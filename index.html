@@ -8,77 +8,83 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- ✅ NAV: SIGN IN + CREATE ACCOUNT + SUBSCRIBE BUTTON AT TOP -->
     <nav>
         <div class="container">
             <h1 class="logo">StreamClean</h1>
             <div class="nav-links">
                 <a href="#">Home</a>
                 <a href="#" id="openSignIn">Sign In</a>
-                <!-- ✅ "Streams / All Streams" BUTTON REMOVED COMPLETELY -->
+                <a href="#" id="openSignUp">Create Account</a>
+                <a href="https://buy.stripe.com/aFa6oHarE6aa10N3M9bQY00" target="_blank" class="subscribe-top">Subscribe • Unlimited Access</a>
             </div>
         </div>
     </nav>
 
     <header class="hero">
         <div class="container">
-            <!-- ✅ OLD "100% Ad-Free & Secure" TEXT REMOVED -->
             <h1 id="mainHeading">Stream up to 10 videos/streams in one place<br><span style="color:#66fcf1;">100% Streaming Cleanly</span></h1>
             <p id="subHeading">Organize, save, and control all your streams — fast, clean, simple.</p>
-            <!-- ✅ REAL WORKING PAYMENT LINK — YOUR STRIPE LINK ADDED -->
-            <a href="https://buy.stripe.com/aFa6oHarE6aa10N3M9bQY00" target="_blank" class="premium-btn" style="display:inline-block; text-decoration:none;">Subscribe Monthly — Unlimited Streams</a>
-            <div class="free-count-box">Free Uses Left: <span id="freeCount">10</span></div>
+            <!-- ✅ FREE USES COUNT — ALWAYS VISIBLE -->
+            <div class="free-count-box">
+                🎁 <strong>Free Uses Left: <span id="freeCount">10</span></strong> — 10 streams FREE, forever
+            </div>
+            <!-- ✅ BIG SUBSCRIBE BUTTON — SAME LINK -->
+            <a href="https://buy.stripe.com/aFa6oHarE6aa10N3M9bQY00" target="_blank" class="premium-btn big-btn">🔥 Subscribe Now — Unlimited Streams Forever</a>
         </div>
     </header>
 
-    <section class="features">
+    <section class="features professional-layout">
         <div class="container">
-            <!-- ✅ FEATURE BOXES UPDATED EXACTLY AS YOU WANTED -->
-            <div class="feature-box">
-                <h3>Stream 10 at Once</h3>
-                <p>Stream 10 videos / streams / animes all on one single website — play, pause or mute any player separately.</p>
+            <div class="feature-box highlight">
+                <h3>🎬 Stream 10 at Once</h3>
+                <p>Stream 10 videos / streams / animes all on one website — play, pause or mute each separately.</p>
             </div>
-            <div class="feature-box">
-                <h3>10 Free Uses / Unlimited Paid</h3>
-                <p>Try streaming 10 free videos — subscribe for endless streaming while your subscription stays active.</p>
+            <div class="feature-box highlight">
+                <h3>🔓 10 Free / Unlimited Paid</h3>
+                <p>10 free streams to try — subscribe for endless streaming while your subscription stays active.</p>
             </div>
-            <div class="feature-box">
-                <h3>Save & Organize</h3>
-                <p>Save playlists, load all at once, change layout any way you want — 3+7, 5+5, grid view.</p>
+            <div class="feature-box highlight">
+                <h3>💾 Save Unlimited Playlists</h3>
+                <p>Save unlimited playlists & links — load all at once, change layout anytime: 3+7, 5+5, grid view.</p>
             </div>
         </div>
     </section>
 
     <div class="container" id="mainContainer">
-        <!-- ✅ LAYOUT CHANGER + 10 MEDIA PLAYERS LOAD HERE VIA SCRIPT -->
+        <!-- Layout + Players Load Here -->
     </div>
 
     <section class="faq-section" id="faq">
-        <!-- ✅ FAQ: ONLY QUESTIONS 1–5 • QUESTION 6 REMOVED • CLICK = SHOW ANSWER -->
+        <!-- FAQ Load Here — Only Q1-Q5 -->
     </section>
 
-    <!-- ✅ ADMIN DETAILS BUILT IN — LOGIN WORKS WITH YOUR EMAIL & PASSWORD -->
+    <!-- ✅ SIGN IN MODAL — WORKS, SAVES DATA -->
     <div id="signInModal" class="modal hidden">
         <div class="modal-content">
             <span class="close-modal">&times;</span>
             <h2>Sign In</h2>
-            <input type="email" id="loginEmail" placeholder="Email" value="magicalfinger749@gmail.com">
-            <input type="password" id="loginPass" placeholder="Password" value="Kinghashim2">
-            <button id="loginBtn">Login</button>
-            <p style="margin-top:10px; font-size:13px; color:#888;">Admin access active — use your details</p>
+            <input type="email" id="loginEmail" placeholder="Your email">
+            <input type="password" id="loginPass" placeholder="Your password">
+            <button id="loginBtn">Sign In</button>
+            <p class="note">Admin: magicalfinger749@gmail.com / Kinghashim2</p>
         </div>
     </div>
 
-    <!-- ✅ SUBSCRIBE MODAL LINKS DIRECTLY TO YOUR STRIPE -->
+    <!-- ✅ CREATE ACCOUNT MODAL — SENDS VERIFICATION EMAIL, SAVES DATA -->
     <div id="signUpModal" class="modal hidden">
         <div class="modal-content">
             <span class="close-modal">&times;</span>
-            <h2>Subscribe Now</h2>
-            <p style="margin-bottom:15px;">Click below to pay & activate unlimited access</p>
-            <a href="https://buy.stripe.com/aFa6oHarE6aa10N3M9bQY00" target="_blank" class="premium-btn" style="display:inline-block; text-decoration:none; width:100%; text-align:center;">Go to Payment Page</a>
+            <h2>Create New Account</h2>
+            <input type="email" id="newEmail" placeholder="Your email">
+            <input type="password" id="newPass" placeholder="Choose password">
+            <button id="createBtn">Create Account</button>
+            <p class="note">✓ Verification email sent automatically</p>
         </div>
     </div>
 
-    <!-- ✅ NEW LEGAL NOTICE LOADS HERE • OLD ONE DELETED -->
+    <!-- ✅ ONLY 1 LEGAL NOTICE — NO DUPLICATES -->
+    <div id="singleLegalFooter" class="legal-footer"></div>
 
     <script src="script.js"></script>
 </body>
