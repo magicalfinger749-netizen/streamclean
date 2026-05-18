@@ -6,7 +6,7 @@
 
 const express = require('express');
 const path = require('path');
-const nodemailer = require('nodemailer');
+
 const crypto = require('crypto');
 const fs = require('fs');
 const app = express();
@@ -15,9 +15,8 @@ const PORT = process.env.PORT || 3000;
 // --------------------------
 // ⚠️ CONFIG - UPDATE THESE 2 THINGS FIRST
 // --------------------------
-const EMAIL_USER = "streamclean749@gmail.com";          // Your sending email
-const EMAIL_PASS = "YOUR_GMAIL_APP_PASSWORD";          // Your Gmail App Password (I can help set this)
-const SITE_URL = "https://your-site-url.onrender.com";  // Your Render website URL
+ const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const YOUR_WEBSITE_URL = "https://streamclean.live";
 const STRIPE_LINK = "https://buy.stripe.com/aFa6oHarE6aa10N3M9bQY00"; // Your payment link
 
 // --------------------------
