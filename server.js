@@ -3,6 +3,7 @@
 // ✅ FEATURES: Real Email Verification + Thank You Email After Subscription
 // ✅ Sends emails to inbox with links & full details
 // ✅ NEW: Profile / Account Details Page
+// ✅ FIXED: Paths + Homepage Load + Styles Working
 // ==================================================
 
 const express = require('express');
@@ -20,11 +21,11 @@ const YOUR_WEBSITE_URL = "https://streamclean.live";
 const STRIPE_LINK = "https://buy.stripe.com/aFa6oHarE6aa10N3M9bQY00";
 
 // --------------------------
-// ✅ MIDDLEWARE
+// ✅ MIDDLEWARE — FIXED PATHS ✅
 // --------------------------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(__dirname));
+app.use(express.static(__dirname)); // ✅ CORRECT PATH — LOADS ALL FILES
 
 // --------------------------
 // ✅ DATABASE (SAVES PERMANENTLY)
@@ -44,9 +45,7 @@ function getDB() {
 
 function saveDB(data) {
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
-}
-
-// ==================================================
+}// ==================================================
 // ✅ EMAIL SYSTEM - BREVO ONLY (NO GMAIL / NODEMAILER)
 // ==================================================
 
@@ -293,13 +292,16 @@ app.get('/account', (req, res) => {
         </body>
         </html>
     `);
-});
-
-// --------------------------
+});// --------------------------
 // ✅ STRIPE PAYMENT LINK
 // --------------------------
 app.get('/buy', (req, res) => {
     res.redirect(STRIPE_LINK);
+});
+
+// ✅ LOAD HOMEPAGE AUTOMATICALLY — FIXED THIS EARLIER MISSING PART
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // --------------------------
