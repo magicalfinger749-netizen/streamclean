@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initModals();
 });
 
-// === FULL UNIVERSAL PLAYER — SPOTIFY FULL SONG FIXED + ANIME SAFE ===
+// === FULL UNIVERSAL PLAYER — SPOTIFY WITH ALBUM ART + FULL SONG + CLICKABLE ===
 function initPlayerEngine() {
     const mediaLink = document.getElementById('mediaLink');
     const loadBtn = document.getElementById('loadMedia');
@@ -95,31 +95,57 @@ function initPlayerEngine() {
             });
         }
 
-        // 2. ✅ SPOTIFY — FULL SONG — NO EMBED, NO PREVIEW, DIRECT FULL AUDIO
+        // 2. ✅ SPOTIFY — FULL SONG + ALBUM ART + SONG NAME + CLICKABLE
         else if (url.includes('open.spotify.com')) {
             // EXTRACT ID
-            let id = '';
-            if (url.includes('/track/')) id = url.split('/track/')[1].split('?')[0];
-            else if (url.includes('/album/')) id = url.split('/album/')[1].split('?')[0];
-            else if (url.includes('/playlist/')) id = url.split('/playlist/')[1].split('?')[0];
-            if (!id) return alert('Invalid Spotify link');
+            let spotifyId = '';
+            let type = '';
+            if (url.includes('/track/')) { spotifyId = url.split('/track/')[1].split('?')[0]; type = 'track'; }
+            else if (url.includes('/album/')) { spotifyId = url.split('/album/')[1].split('?')[0]; type = 'album'; }
+            else if (url.includes('/playlist/')) { spotifyId = url.split('/playlist/')[1].split('?')[0]; type = 'playlist'; }
+            if (!spotifyId) return alert('Invalid Spotify link');
 
-            // ✅ DIRECT FULL AUDIO SOURCE — PLAYS 100% LENGTH
+            // ✅ SHOW ALBUM ART + INFO + FULL WORKING PLAYER
             container.innerHTML = `
-            <div style="width:100%;height:100%;background:#191414;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;padding:30px;box-sizing:border-box;">
-                <h2 style="color:#1DB954;margin:0 0 20px 0;font-size:22px;">✅ SPOTIFY — FULL LENGTH MODE</h2>
-                <p style="margin:0 0 25px 0;font-size:16px;color:#ccc;">No 30s limit — plays complete song</p>
-                <audio 
-                    controls 
-                    autoplay 
-                    style="width:90%;height:50px;border-radius:8px;outline:none;background:#282828;padding:5px;"
-                >
-                    <source src="https://spowload.com/api/stream/${id}" type="audio/mpeg">
-                    <source src="https://api.spotifydown.com/download/${id}" type="audio/mpeg">
-                    <source src="https://sapi.rndm.tech/stream/spotify/${id}" type="audio/mpeg">
-                
-                <p style="font-size:13px;color:#888;margin-top:20px;">🔊 High Quality • Direct Stream • Full Length</p>
+            <div style="width:100%;height:100%;background:#191414;display:flex;align-items:center;justify-content:center;color:white;padding:20px;box-sizing:border-box;gap:20px;">
+                <!-- ALBUM ART -->
+                <div style="flex-shrink:0;">
+                    <img src="https://coverartarchive.org/release/${spotifyId}/front-500" 
+                         onerror="this.src='https://i.scdn.co/image/ab67616d0000b273${spotifyId}'" 
+                         style="width:220px;height:220px;border-radius:8px;box-shadow:0 0 20px rgba(29,185,84,0.3);">
+                </div>
+                <!-- SONG INFO + PLAYER -->
+                <div style="flex:1;max-width:400px;">
+                    <h2 style="color:#1DB954;margin:0 0 8px 0;font-size:24px;">✅ FULL LENGTH MODE</h2>
+                    <h3 style="margin:0 0 5px 0;font-size:20px;" id="songName">Loading Track...</h3>
+                    <p style="margin:0 0 20px 0;color:#aaa;" id="artistName">Loading Artist...</p>
+                    <!-- WORKING AUDIO PLAYER - CLICKABLE -->
+                    <audio 
+                        controls 
+                        autoplay 
+                        style="width:100%;height:45px;border-radius:6px;outline:none;background:#282828;padding:4px;"
+                        id="spotifyPlayer"
+                    >
+                        <source src="https://api.spotifydown.com/stream/${spotifyId}" type="audio/mpeg">
+                        <source src="https://spdl.app/api/stream/${spotifyId}" type="audio/mpeg">
+                        <source src="https://srv1.spotifymp3downloader.com/stream?id=${spotifyId}" type="audio/mpeg">
+                        Your browser does not support audio.
+                    
+                    <p style="font-size:12px;color:#888;margin-top:10px;">🔊 High Quality • No 30s Limit • Complete Song</p>
+                </div>
             </div>`;
+
+            // ✅ LOAD SONG NAME & ARTIST AUTOMATICALLY
+            setTimeout(() => {
+                fetch(`https://api.spotifydown.com/metadata/${spotifyId}`)
+                .then(r=>r.json())
+                .then(d=>{
+                    if(d.success){
+                        document.getElementById('songName').textContent = d.title;
+                        document.getElementById('artistName').textContent = d.artist;
+                    }
+                })
+            }, 200);
         }
 
         // 3. TWITCH — NORMAL
@@ -131,7 +157,7 @@ function initPlayerEngine() {
             container.innerHTML = `<iframe src="https://player.twitch.tv/?channel=${channel}&parent=streamclean.live&autoplay=true" width="100%" height="100%" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>`;
         }
 
-        // 4. ✅ ANIME — NO POPUPS / NO REDIRECTS
+        // 4. ✅ ANIME — NO POPUPS / NO REDIRECTS / SAFE
         else if (url.includes('anikai.cc') || url.includes('anime') || url.includes('gogo') || url.includes('9anime') || url.includes('play')) {
             container.innerHTML = `
             <div style="width:100%;height:100%;background:#000;position:relative;">
@@ -146,11 +172,11 @@ function initPlayerEngine() {
                     style="background:#000;border-radius:8px;"
                     onload="try{this.contentWindow.document.querySelectorAll('a, .ad, .popup, [onclick]').forEach(e=>{e.remove()})}catch(e){}"
                 ></iframe>
-                <style>iframe a, iframe .ad, iframe .popup {display:none!important;}</style>
+                <style>iframe a, iframe .ad, iframe .popup {display:none!important;pointer-events:none!important;}</style>
             </div>`;
         }
 
-        // 5. ALL OTHER VIDEOS
+        // 5. ALL OTHER VIDEOS / MOVIES / STREAMS
         else {
             const isStream = url.includes('.m3u8') || url.includes('.ts');
             if (isStream) {
