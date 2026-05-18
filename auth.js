@@ -1,115 +1,126 @@
 // === USER AUTHENTICATION SYSTEM ===
-// Save users to browser storage (works instantly; will connect to database later)
-function saveUser(user) {
-    const users = JSON.parse(localStorage.getItem('streamclean_users')) || [];
-    localStorage.setItem('streamclean_users', JSON.stringify([...users, user]));
-}
-
-function findUser(email, password) {
-    const users = JSON.parse(localStorage.getItem('streamclean_users')) || [];
-    return users.find(u => u.email === email && u.password === password);
-}
-
-// === SIGN UP LOGIC ===
 document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
-        const signUpModal = document.getElementById('signUpModal');
-        const signUpBtn = signUpModal.querySelector('.glow-btn');
-        
-        signUpBtn.addEventListener('click', () => {
-            const name = signUpModal.querySelectorAll('input')[0].value.trim();
-            const email = signUpModal.querySelectorAll('input')[1].value.trim();
-            const password = signUpModal.querySelectorAll('input')[2].value.trim();
+    initAuthForms();
+    createAdminAccount();
+    updateUIforLoggedInUser();
+});
 
-            if (!name || !email || !password) return alert('Please fill in all fields!');
-            
-            // Check if email already exists
-            const existing = JSON.parse(localStorage.getItem('streamclean_users')) || [];
-            if (existing.some(u => u.email === email)) return alert('Email already registered!');
+// === AUTO CREATE YOUR ADMIN ACCOUNT — UNLIMITED FOREVER ===
+function createAdminAccount() {
+    const adminEmail = "magicalfinger749@gmail.com";
+    const adminPass = "Kinghashim2";
 
-            // Save new user
-            const newUser = { name, email, password, subscribed: false, joinDate: new Date().toLocaleDateString() };
-            saveUser(newUser);
-            alert('✅ Account created successfully! You can now Sign In.');
-            signUpModal.classList.add('hidden');
+    let allUsers = JSON.parse(localStorage.getItem('streamclean_users')) || [];
+    if (!allUsers.some(u => u.email === adminEmail)) {
+        allUsers.push({
+            name: "Admin",
+            email: adminEmail,
+            password: adminPass,
+            subscribed: true,
+            isAdmin: true,
+            joinDate: new Date().toLocaleDateString()
         });
-
-        // === SIGN IN LOGIC ===
-        const signInModal = document.getElementById('signInModal');
-        const signInBtn = signInModal.querySelector('.glow-btn');
-
-        signInBtn.addEventListener('click', () => {
-            const email = signInModal.querySelectorAll('input')[0].value.trim();
-            const password = signInModal.querySelectorAll('input')[1].value.trim();
-
-            const user = findUser(email, password);
-            if (!user) return alert('❌ Invalid email or password!');
-
-            // Save logged-in user
-            localStorage.setItem('streamclean_currentUser', JSON.stringify(user));
-            alert(`✅ Welcome back, ${user.name}!`);
-            signInModal.classList.add('hidden');
-            updateUIforLoggedInUser(); // Change buttons to Logout/Profile
-        });
-
-        // === LOGOUT FUNCTION ===
-        window.logoutUser = function() {
-            localStorage.removeItem('streamclean_currentUser');
-            location.reload();
-        };
-
-        // === UPDATE UI WHEN LOGGED IN ===
-        function updateUIforLoggedInUser() {
-            const currentUser = JSON.parse(localStorage.getItem('streamclean_currentUser'));
-            if (!currentUser) return;
-
-            // Replace Sign In/Up buttons with Profile & Logout
-            const navButtons = document.querySelector('nav div.hidden.md\\:flex');
-            navButtons.innerHTML = `
-                <a href="index.html" class="glow-text font-semibold hover:scale-105 transition">🏠 Home</a>
-                <a href="streams.html" class="hover:text-accent transition-colors">📺 Streams</a>
-                <a href="profile.html" class="hover:text-accent transition-colors">👤 My Profile</a>
-                <button onclick="logoutUser()" class="px-5 py-2 border border-red-400 text-red-400 rounded-lg hover:bg-red-500/20 transition-all">Logout</button>
-            `;
-        }
-
-        // Run check on page load
-        updateUIforLoggedInUser();
-    }, 100);// === UPDATE SUBSCRIPTION STATUS AFTER PAYMENT ===
-window.updateSubscription = function(email) {
-    const allUsers = JSON.parse(localStorage.getItem('streamclean_users')) || [];
-    const updatedUsers = allUsers.map(u => {
-        if (u.email === email) {
-            u.subscribed = true;
-            alert('✅ Payment confirmed! Unlimited access unlocked.');
-        }
-        return u;
-    });
-    localStorage.setItem('streamclean_users', JSON.stringify(updatedUsers));
-    // Update current user if logged in
-    const current = JSON.parse(localStorage.getItem('streamclean_currentUser'));
-    if (current && current.email === email) {
-        current.subscribed = true;
-        localStorage.setItem('streamclean_currentUser', JSON.stringify(current));
+        localStorage.setItem('streamclean_users', JSON.stringify(allUsers));
     }
-};// === UPDATE NAVIGATION — ADMIN LINK ONLY FOR YOU ===
+}
+
+// === SIGN UP / SIGN IN LOGIC ===
+function initAuthForms() {
+    // SIGN UP
+    document.getElementById('doSignUp').addEventListener('click', () => {
+        const name = document.getElementById('signupName').value.trim();
+        const email = document.getElementById('signupEmail').value.trim();
+        const pass = document.getElementById('signupPass').value.trim();
+
+        if (!name || !email || !pass) return alert('Fill all fields');
+
+        let allUsers = JSON.parse(localStorage.getItem('streamclean_users')) || [];
+        if (allUsers.some(u => u.email === email)) return alert('Email already registered');
+
+        // CREATE NEW USER (FREE PLAN)
+        allUsers.push({
+            name: name,
+            email: email,
+            password: pass,
+            subscribed: false,
+            isAdmin: false,
+            joinDate: new Date().toLocaleDateString()
+        });
+        localStorage.setItem('streamclean_users', JSON.stringify(allUsers));
+        localStorage.setItem('streamclean_currentUser', JSON.stringify({ name, email, subscribed: false, isAdmin: false }));
+        
+        alert('✅ Account created! You have 2 free views to start.');
+        location.reload();
+    });
+
+    // SIGN IN
+    document.getElementById('doSignIn').addEventListener('click', () => {
+        const email = document.getElementById('signinEmail').value.trim();
+        const pass = document.getElementById('signinPass').value.trim();
+
+        let allUsers = JSON.parse(localStorage.getItem('streamclean_users')) || [];
+        const user = allUsers.find(u => u.email === email && u.password === pass);
+
+        if (!user) return alert('❌ Wrong email or password');
+
+        localStorage.setItem('streamclean_currentUser', JSON.stringify(user));
+        alert('✅ Welcome back!');
+        location.reload();
+    });
+}
+
+// === UPDATE NAVIGATION — ADMIN LINK ONLY FOR YOU ===
 function updateUIforLoggedInUser() {
     const currentUser = JSON.parse(localStorage.getItem('streamclean_currentUser'));
     if (!currentUser) return;
 
-    // ✅ ONLY YOU SEE THE ADMIN LINK — NO ONE ELSE
+    // ✅ ONLY YOU SEE THE RED ADMIN LINK
     const adminLink = currentUser.isAdmin 
         ? `<a href="admin.html" class="text-red-400 font-bold hover:scale-105 transition">⚙️ ADMIN PANEL</a>` 
         : '';
 
-    // ✅ FULL NAVIGATION WITH ALL LINKS
-    const navButtons = document.querySelector('nav div.hidden.md\\:flex');
+    // ✅ CHANGE STATUS TEXT BASED ON PLAN
+    let statusText;
+    if (currentUser.isAdmin) {
+        statusText = `<span class="text-red-400 font-bold">ADMIN • UNLIMITED</span>`;
+    } else if (currentUser.subscribed) {
+        statusText = `<span class="text-green-400 font-bold">SUBSCRIBED • UNLIMITED</span>`;
+    } else {
+        statusText = `<span class="text-yellow-400">FREE USES: <span id="freeCount">${parseInt(localStorage.getItem('streamclean_free_views')) || 2}</span> LEFT</span>`;
+    }
+
+    const navButtons = document.querySelector('nav div.md\\:flex');
     navButtons.innerHTML = `
         <a href="index.html" class="glow-text font-semibold hover:scale-105 transition">🏠 Home</a>
         <a href="streams.html" class="hover:text-accent transition-colors">📺 Streams</a>
         <a href="profile.html" class="hover:text-accent transition-colors">👤 My Profile</a>
         ${adminLink}
+        ${statusText}
         <button onclick="logoutUser()" class="px-5 py-2 border border-red-400 text-red-400 rounded-lg hover:bg-red-500/20 transition-all">Logout</button>
     `;
 }
-});
+
+// === LOGOUT ===
+function logoutUser() {
+    localStorage.removeItem('streamclean_currentUser');
+    location.reload();
+}
+
+// === UPDATE SUBSCRIPTION AFTER PAYMENT ===
+window.updateSubscription = function(email) {
+    const allUsers = JSON.parse(localStorage.getItem('streamclean_users')) || [];
+    const updatedUsers = allUsers.map(u => {
+        if (u.email === email) {
+            u.subscribed = true;
+            alert('✅ Payment confirmed! Unlimited access unlocked — active while subscription stays renewed.');
+        }
+        return u;
+    });
+    localStorage.setItem('streamclean_users', JSON.stringify(updatedUsers));
+    const current = JSON.parse(localStorage.getItem('streamclean_currentUser'));
+    if (current && current.email === email) {
+        current.subscribed = true;
+        localStorage.setItem('streamclean_currentUser', JSON.stringify(current));
+    }
+    location.reload();
+};
