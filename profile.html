@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile | StreamClean</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0b0c10',
+                        secondary: '#1f2833',
+                        glass: 'rgba(31, 40, 51, 0.4)',
+                        glassBorder: 'rgba(102, 252, 241, 0.2)',
+                        textLight: '#f8f9fa',
+                        accent: '#66fcf1',
+                        accentDark: '#45a29e',
+                        glow: '#66fcf1',
+                    },
+                    fontFamily: { sans: ['Segoe UI', 'Roboto', 'sans-serif'] },
+                    boxShadow: { glass: '0 8px 32px rgba(0,0,0,0.3)', glow: '0 0 15px rgba(102,252,241,0.5)' }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .glass-card { @apply bg-glass backdrop-blur-xl border border-glassBorder rounded-2xl shadow-glass; }
+            .glow-text { @apply text-accent drop-shadow-[0_0_8px_rgba(102,252,241,0.7)]; }
+            .glow-btn { @apply bg-accent text-primary rounded-lg hover:bg-accentDark hover:shadow-glow transition-all duration-300; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-primary via-secondary to-primary min-h-screen text-textLight font-sans">
+
+    <nav class="fixed w-full top-0 z-50 glass-card px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3"><h1 class="glow-text text-2xl font-bold">StreamClean</h1></div>
+        <div class="hidden md:flex items-center gap-8" id="navBar">
+            <a href="index.html" class="glow-text font-semibold hover:scale-105 transition">🏠 Home</a>
+            <a href="streams.html" class="hover:text-accent transition-colors">📺 Streams</a>
+            <a href="profile.html" class="glow-text">👤 My Profile</a>
+            <button onclick="logoutUser()" class="px-5 py-2 border border-red-400 text-red-400 rounded-lg hover:bg-red-500/20 transition-all">Logout</button>
+        </div>
+    </nav>
+
+    <main class="pt-28 px-4 md:px-8 pb-20 max-w-3xl mx-auto">
+        <div class="glass-card p-8 md:p-12 shadow-glow">
+            <h2 class="text-3xl font-bold glow-text mb-6">👤 My Account</h2>
+            <div id="profileDetails" class="space-y-4 text-lg">
+                <p><strong>Name:</strong> <span id="profName"></span></p>
+                <p><strong>Email:</strong> <span id="profEmail"></span></p>
+                <p><strong>Joined:</strong> <span id="profDate"></span></p>
+                <p><strong>Status:</strong> <span id="profStatus" class="text-yellow-400">❌ Not Subscribed</span></p>
+            </div>
+            <div class="mt-8">
+                <a href="index.html#subscription" class="glow-btn px-6 py-3 inline-block font-semibold">🔓 Upgrade to Unlimited</a>
+            </div>
+        </div>
+    </main>
+
+    <script src="auth.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const user = JSON.parse(localStorage.getItem('streamclean_currentUser'));
+            if (!user) return window.location.href = 'index.html'; // Redirect if not logged in
+
+            document.getElementById('profName').textContent = user.name;
+            document.getElementById('profEmail').textContent = user.email;
+            document.getElementById('profDate').textContent = user.joinDate;
+            if (user.subscribed) {
+                document.getElementById('profStatus').textContent = '✅ Unlimited Access Active';
+                document.getElementById('profStatus').className = 'text-green-400';
+            }
+        });
+    </script>
+</body>
+</html>
