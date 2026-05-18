@@ -1,6 +1,7 @@
 // ==============================================
-// ✅ STREAMCLEAN — FULL WORKING CODE
-// ✅ FIXED: Free Count, Accounts, Email, Fullscreen, Playlists
+// ✅ STREAMCLEAN — FULL CODE
+// ✅ UNLIMITED ACCESS LINKED TO ACCOUNT AFTER PAYMENT
+// ✅ FLOW: Must have account → pay → access linked forever
 // ==============================================
 
 // --------------------------
@@ -9,7 +10,7 @@
 let freeUsesLeft = localStorage.getItem('freeUsesLeft') ? parseInt(localStorage.getItem('freeUsesLeft')) : 10;
 let currentUser = null;
 let players = [];
-let playlists = JSON.parse(localStorage.getItem('playlists')) || [];
+let playlists = [];
 const STRIPE_LINK = "https://buy.stripe.com/aFa6oHarE6aa10N3M9bQY00";
 const ADMIN_EMAIL = "magicalfinger749@gmail.com";
 const ADMIN_PASS = "Kinghashim2";
@@ -24,34 +25,88 @@ document.addEventListener('DOMContentLoaded', () => {
     buildPlayers(10);
     buildFAQ();
     buildLegalNotice();
-    setupPlaylistManager();
     checkUserSession();
+    setupSubscribeButton();
+    loadUserPlaylists();
 });
 
 // --------------------------
-// ✅ FREE USES SYSTEM
+// ✅ FREE USES VS UNLIMITED (LINKED TO ACCOUNT)
 // --------------------------
 function updateFreeCountDisplay() {
-    document.getElementById('freeCount').textContent = freeUsesLeft;
-    localStorage.setItem('freeUsesLeft', freeUsesLeft);
+    // ✅ IF USER PAID → SHOW UNLIMITED INSTEAD OF NUMBER
+    if (currentUser?.subscribed) {
+        document.querySelector('.free-count-box').innerHTML = `
+            🎁 <strong style="color:#66fcf1;">✅ UNLIMITED STREAMS ACTIVE</strong> — Enjoy full access
+        `;
+    } else {
+        document.getElementById('freeCount').textContent = freeUsesLeft;
+        localStorage.setItem('freeUsesLeft', freeUsesLeft);
+    }
 }
 
 function useFreeStream() {
-    if (freeUsesLeft > 0 && !currentUser?.subscribed) {
+    // ✅ PAID USERS = ALWAYS UNLIMITED
+    if (currentUser?.subscribed) return true;
+
+    // ✅ FREE USERS = LIMITED
+    if (freeUsesLeft > 0) {
         freeUsesLeft--;
         updateFreeCountDisplay();
         return true;
-    } else if (currentUser?.subscribed) {
-        return true; // unlimited for paid users
     } else {
-        alert("⚠️ No free uses left! Subscribe for unlimited access.");
+        alert("⚠️ No free uses left! You must subscribe for unlimited access.");
         window.open(STRIPE_LINK, '_blank');
         return false;
     }
 }
 
 // --------------------------
-// ✅ ACCOUNT SYSTEM — SIGN IN / CREATE ACCOUNT
+// ✅ SUBSCRIBE BUTTON LOGIC — MUST BE LOGGED IN FIRST
+// --------------------------
+function setupSubscribeButton() {
+    const topBtn = document.querySelector('.subscribe-top');
+    const heroBtn = document.querySelector('.premium-btn.big-btn');
+
+    const goSubscribe = (e) => {
+        e.preventDefault();
+
+        // ✅ CHECK IF LOGGED IN FIRST
+        if (!currentUser) {
+            alert("⚠️ Please Create Account or Sign In first!\n\nYou must have an account to get unlimited access linked to you.");
+            document.getElementById('openSignUp').click();
+            return;
+        }
+
+        // ✅ ALREADY PAID
+        if (currentUser.subscribed) {
+            alert("✅ You already have UNLIMITED access! Enjoy all features.");
+            return;
+        }
+
+        // ✅ GO PAY → AFTER PAYMENT IT LINKS TO YOUR ACCOUNT
+        if (confirm("You will be sent to payment page.\n\nAfter payment, unlimited access will be activated on your account forever.")) {
+            // Save current email so we know who paid
+            localStorage.setItem('payingUserEmail', currentUser.email);
+            window.open(`${STRIPE_LINK}?email=${encodeURIComponent(currentUser.email)}`, '_blank');
+            
+            // ✅ CHECK EVERY 3 SECONDS IF PAYMENT DONE
+            const checkPaid = setInterval(() => {
+                if (currentUser?.subscribed) {
+                    clearInterval(checkPaid);
+                    updateFreeCountDisplay();
+                    alert("✅ SUCCESS! Unlimited access activated on your account!");
+                }
+            }, 3000);
+        }
+    };
+
+    topBtn.addEventListener('click', goSubscribe);
+    heroBtn.addEventListener('click', goSubscribe);
+}
+
+// --------------------------
+// ✅ ACCOUNT SYSTEM — SIGN IN / CREATE / VERIFY
 // --------------------------
 function setupModals() {
     const signInBtn = document.getElementById('openSignIn');
@@ -65,66 +120,51 @@ function setupModals() {
     signInBtn.addEventListener('click', e => { e.preventDefault(); signInModal.classList.remove('hidden'); });
     signUpBtn.addEventListener('click', e => { e.preventDefault(); signUpModal.classList.remove('hidden'); });
     closeBtns.forEach(btn => btn.addEventListener('click', () => {
-        signInModal.classList.add('hidden');
-        signUpModal.classList.add('hidden');
+        signInModal.classList.add('hidden'); signUpModal.classList.add('hidden');
     }));
 
-    // LOGIN FUNCTION
-    loginBtn.addEventListener('click', () => {
+    // ✅ LOGIN — ONLY VERIFIED USERS
+    loginBtn.addEventListener('click', async () => {
         const email = document.getElementById('loginEmail').value.trim();
         const pass = document.getElementById('loginPass').value.trim();
-
-        // ADMIN LOGIN
-        if (email === ADMIN_EMAIL && pass === ADMIN_PASS) {
-            currentUser = { email: email, subscribed: true, isAdmin: true };
+        const res = await fetch('/login', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({email, password:pass})
+        });
+        const data = await res.json();
+        if (data.success) {
+            currentUser = data.user;
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            alert("✅ Welcome Admin! Unlimited access active.");
+            updateFreeCountDisplay();
+            loadUserPlaylists(); // ✅ LOAD THEIR SAVED PLAYLISTS
+            alert(`✅ Welcome ${email}! ${currentUser.subscribed ? '— UNLIMITED ACCESS ACTIVE' : ''}`);
             signInModal.classList.add('hidden');
-            return;
-        }
-
-        // NORMAL USER LOGIN
-        const users = JSON.parse(localStorage.getItem('users')) || [];
-        const found = users.find(u => u.email === email && u.password === pass);
-        if (found) {
-            currentUser = found;
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            alert(`✅ Welcome back ${email}!`);
-            signInModal.classList.add('hidden');
-        } else {
-            alert("❌ Wrong email or password!");
-        }
+        } else alert(data.error);
     });
 
-    // CREATE ACCOUNT + VERIFICATION EMAIL
-    createBtn.addEventListener('click', () => {
+    // ✅ CREATE ACCOUNT → SEND VERIFY EMAIL
+    createBtn.addEventListener('click', async () => {
         const email = document.getElementById('newEmail').value.trim();
         const pass = document.getElementById('newPass').value.trim();
         if (!email || !pass) return alert("❌ Fill all fields!");
 
-        const users = JSON.parse(localStorage.getItem('users')) || [];
-        if (users.some(u => u.email === email)) return alert("❌ Email already registered!");
-
-        // SAVE NEW USER
-        const newUser = { email: email, password: pass, subscribed: false };
-        users.push(newUser);
-        localStorage.setItem('users', JSON.stringify(users));
-        
-        // ✅ SIMULATE SENDING VERIFICATION EMAIL
-        sendVerificationEmail(email);
-        alert(`✅ Account created! Verification email sent to ${email}`);
-        signUpModal.classList.add('hidden');
+        const res = await fetch('/create-account', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({email, password:pass})
+        });
+        const data = await res.json();
+        alert(data.success ? `✅ ${data.message}` : `❌ ${data.error}`);
+        if (data.success) signUpModal.classList.add('hidden');
     });
-}
-
-function sendVerificationEmail(email) {
-    console.log(`📧 Sent verification email to: ${email}`);
-    // In real setup: connect to email API (SendGrid/Mailgun)
 }
 
 function checkUserSession() {
     const saved = localStorage.getItem('currentUser');
-    if (saved) currentUser = JSON.parse(saved);
+    if (saved) {
+        currentUser = JSON.parse(saved);
+        updateFreeCountDisplay();
+        loadUserPlaylists();
+    }
 }
 
 // --------------------------
@@ -198,11 +238,10 @@ function buildPlayers(count) {
         `;
         playersGrid.appendChild(playerBox);
 
-        // ✅ FULLSCREEN FIX: ISOLATE CONTEXT SO OTHERS KEEP PLAYING
+        // ✅ FULLSCREEN FIX: Others keep playing
         document.getElementById(`container${i}`).setAttribute('allowfullscreen', 'true');
         document.getElementById(`container${i}`).style.isolation = 'isolate';
 
-        // ATTACH EVENTS
         document.getElementById(`load${i}`).addEventListener('click', () => loadMedia(i));
         document.getElementById(`play${i}`).addEventListener('click', () => playMedia(i));
         document.getElementById(`pause${i}`).addEventListener('click', () => pauseMedia(i));
@@ -219,17 +258,14 @@ function loadMedia(num) {
     const container = document.getElementById(`container${num}`);
     container.innerHTML = '';
 
-    // YOUTUBE
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
         const vidId = extractYoutubeId(url);
         players[num].type = 'youtube';
         players[num].api = new YT.Player(`container${num}`, {
             height: '100%', width: '100%', videoId: vidId,
-            playerVars: { autoplay: 1, controls: 1, modestbranding: 1 },
-            events: { onReady: () => {} }
+            playerVars: { autoplay: 1, controls: 1, modestbranding: 1 }
         });
     }
-    // TWITCH — ✅ FIXED: Does NOT stop when other goes fullscreen
     else if (url.includes('twitch.tv')) {
         players[num].type = 'twitch';
         const channel = url.split('twitch.tv/')[1].split('/')[0];
@@ -253,41 +289,69 @@ function extractYoutubeId(url) {
 
 function playMedia(n) { if (players[n].api) players[n].api.playVideo(); }
 function pauseMedia(n) { if (players[n].api) players[n].api.pauseVideo(); }
-function muteMedia(n) { if (players[n].api) players[n].api.mute(); }
+function muteMedia(n) { if (players[n].api) players[n).api.mute(); }
 function unmuteMedia(n) { if (players[n].api) players[n].api.unMute(); }
 
 // --------------------------
-// ✅ UNLIMITED PLAYLISTS SAVE
+// ✅ UNLIMITED PLAYLISTS — SAVED TO USER ACCOUNT
 // --------------------------
 function setupPlaylistManager() {
     const container = document.getElementById('mainContainer');
     const plDiv = document.createElement('div');
     plDiv.id = 'playlistManager';
     plDiv.innerHTML = `
-        <h3>💾 My Playlists (Unlimited Save)</h3>
+        <h3>💾 My Playlists <span id="playlistNote" style="color:#66fcf1;"></span></h3>
         <button id="savePlaylistBtn" class="premium-btn">Save Current Layout</button>
         <div id="playlistsList"></div>
     `;
     container.appendChild(plDiv);
 
+    // ✅ PAID USERS = UNLIMITED, FREE = LIMITED
     document.getElementById('savePlaylistBtn').addEventListener('click', () => {
+        if (!currentUser) return alert("⚠️ Sign in first to save playlists!");
+        
         const name = prompt("Name your playlist:");
         if (!name) return;
+
         const links = [];
         for (let i=1; i<=10; i++) links.push(document.getElementById(`input${i}`).value);
-        playlists.push({ name, links });
-        localStorage.setItem('playlists', JSON.stringify(playlists));
+        
+        // ✅ SAVE TO USER'S OWN ACCOUNT DATA
+        if (!currentUser.playlists) currentUser.playlists = [];
+        currentUser.playlists.push({ name, links });
+        
+        // ✅ FREE USERS = MAX 3 PLAYLISTS
+        if (!currentUser.subscribed && currentUser.playlists.length > 3) {
+            currentUser.playlists.pop();
+            return alert("⚠️ Free users can save max 3 playlists.\n\nSubscribe for UNLIMITED playlists!");
+        }
+
+        // Save to storage + server
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        saveUserPlaylistsToDB();
         updatePlaylistUI();
-        alert("✅ Playlist saved! Unlimited saves allowed.");
+        alert(`✅ Playlist saved! ${currentUser.subscribed ? 'UNLIMITED saves active' : '3 free saves only'}`);
     });
 
     updatePlaylistUI();
 }
 
+function loadUserPlaylists() {
+    if (!currentUser) return;
+    playlists = currentUser.playlists || [];
+    updatePlaylistUI();
+    // ✅ Update note
+    const noteEl = document.getElementById('playlistNote');
+    if (noteEl) noteEl.textContent = currentUser.subscribed ? "✅ UNLIMITED" : "(Max 3 free)";
+}
+
 function updatePlaylistUI() {
     const list = document.getElementById('playlistsList');
+    if (!list) return;
     list.innerHTML = '';
-    playlists.forEach((pl, idx) => {
+    if (!currentUser || !currentUser.playlists) return;
+
+    currentUser.playlists.forEach((pl, idx) => {
         const card = document.createElement('div');
         card.className = 'playlist-card';
         card.innerHTML = `<strong>${pl.name}</strong>`;
@@ -299,66 +363,17 @@ function updatePlaylistUI() {
     });
 }
 
+function saveUserPlaylistsToDB() {
+    fetch('/save-playlists', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({email: currentUser.email, playlists: currentUser.playlists})
+    });
+}
+
 // --------------------------
 // ✅ FAQ — ONLY Q1-Q5
 // --------------------------
 function buildFAQ() {
     const faqDiv = document.getElementById('faq');
-    faqDiv.innerHTML = `<h2>❓ Frequently Asked Questions</h2>`;
-    const faqs = [
-        {q: "How many streams can I run at once?", a: "Up to 10 streams/videos at the same time — fully independent controls."},
-        {q: "Is it really free?", a: "Yes! You get 10 free uses forever. Subscribe for unlimited access."},
-        {q: "Can I save my streams?", a: "Absolutely! Save unlimited playlists and load them anytime."},
-        {q: "What sites work?", a: "YouTube and Twitch supported — more coming soon."},
-        {q: "How do I subscribe?", a: "Click the Subscribe button at top or hero section — payment is secure via Stripe."}
-    ];
-    faqs.forEach((item, i) => {
-        const qEl = document.createElement('div');
-        qEl.className = 'faq-question';
-        qEl.textContent = `${i+1}. ${item.q}`;
-        qEl.addEventListener('click', () => {
-            document.getElementById('faqAnswerBox')?.remove();
-            const ans = document.createElement('div');
-            ans.id = 'faqAnswerBox';
-            ans.textContent = item.a;
-            faqDiv.appendChild(ans);
-        });
-        faqDiv.appendChild(qEl);
-    });
-}
-
-// --------------------------
-// ✅ SINGLE LEGAL NOTICE ONLY
-// --------------------------
-function buildLegalNotice() {
-    const legalDiv = document.getElementById('singleLegalFooter');
-    legalDiv.innerHTML = `
-        <h3>Terms of Service & Legal Notice</h3>
-        <p>© 2026 StreamClean. All rights reserved. This service is provided as-is. You may not redistribute or copy our code. Payments are processed securely via Stripe. By using our service you agree to our terms.</p>
-    `;
-}
-
-// --------------------------
-// YOUTUBE API LOADER
-// --------------------------
-window.onYouTubeIframeAPIReady = () => {};
-// ADD THIS FUNCTION TO YOUR script.js:
-
-// When user clicks subscribe OR after payment, mark them as subscribed
-async function activateSubscription(email) {
-    const res = await fetch('/mark-subscribed', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({email: email})
-    });
-    const data = await res.json();
-    alert(data.message);
-}
-
-// ALSO: When they come back from Stripe payment, auto-send email:
-window.addEventListener('load', () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('success') === 'true' && currentUser) {
-        activateSubscription(currentUser.email);
-    }
-});
+    faqDiv.innerHTML = `<h2
