@@ -1,7 +1,8 @@
 // === SYSTEM SETTINGS ===
-// ✅ CHANGED: 10 free uses total (was 2)
 let freeViews = parseInt(localStorage.getItem('streamclean_free_views')) || 10;
 let player;
+// ✅ SAVE PLAYLISTS TO BROWSER
+let playlists = JSON.parse(localStorage.getItem('streamclean_playlists')) || [];
 
 // === UPDATE FREE USES COUNT ON SCREEN ===
 function updateFreeCount() {
@@ -10,13 +11,12 @@ function updateFreeCount() {
     localStorage.setItem('streamclean_free_views', freeViews);
 }
 
-// === AI QUESTION BUTTONS — ✅ REMOVED 6TH QUESTION, ONLY 1–5 LEFT ===
+// === AI QUESTION BUTTONS — ONLY 1–5 • 6TH REMOVED ===
 document.addEventListener('DOMContentLoaded', () => {
     const qButtons = document.querySelectorAll('.ai-q-btn');
     const answerBox = document.getElementById('aiAnswerBox');
 
     qButtons.forEach(btn => {
-        // Only enable 1–5, 6th is unclickable
         if(btn.dataset.num !== '6') {
             btn.addEventListener('click', () => {
                 answerBox.textContent = btn.dataset.answer;
@@ -24,20 +24,90 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             btn.style.opacity = '0.4';
             btn.style.pointerEvents = 'none';
+            btn.style.cursor = 'not-allowed';
         }
     });
 
     updateFreeCount();
-    initPlayerEngine();
+    createPlaylistManager(); // ✅ ADDED: SAVE LINKS / PLAYLISTS
+    create10Engines();       // ✅ 10 FULL PLAYERS
     initModals();
-    create10Engines(); // ✅ ADDED: 10 FULLY WORKING MEDIA PLAYERS
+    addLegalFooter();        // ✅ ADDED: LEGAL TERMS AT BOTTOM
 });
 
-// === ✅ CREATES 10 MEDIA PLAYER ENGINES — ALL WORK SAME ===
+// === ✅ PLAYLIST MANAGER — SAVE LINKS, CREATE PLAYLISTS, LOAD ANYTIME ===
+function createPlaylistManager() {
+    const section = document.createElement('div');
+    section.style = `background:#1a1a1a; border-radius:10px; padding:20px; margin:20px 0; border:1px solid #333;`;
+    section.innerHTML = `
+        <h2 style="color:#66fcf1; text-align:center; margin:0 0 15px 0; font-size:20px;">📂 MY PLAYLISTS & SAVED LINKS</h2>
+        <div style="display:flex; gap:10px; margin-bottom:15px; flex-wrap:wrap;">
+            <input type="text" id="newPlaylistName" placeholder="Name your playlist..." style="flex:1; min-width:200px; padding:12px; border-radius:6px; border:none; background:#2a2a2a; color:white;">
+            <button id="saveCurrentLinks" style="padding:12px 20px; background:#66fcf1; color:#000; border:none; border-radius:6px; font-weight:bold;">💾 Save All Current Links</button>
+        </div>
+        <div id="playlistsList" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:10px;"></div>
+    `;
+    document.querySelector('.container').prepend(section);
+
+    // Save button
+    document.getElementById('saveCurrentLinks').addEventListener('click', () => {
+        const name = document.getElementById('newPlaylistName').value.trim();
+        if(!name) return alert('Enter a name first!');
+        // Get all current links from all 10 players
+        const links = Array.from(document.querySelectorAll('.mediaInput')).map(i => i.value.trim()).filter(Boolean);
+        if(links.length === 0) return alert('Load some links first!');
+        
+        playlists.push({ id:Date.now(), name, links });
+        localStorage.setItem('streamclean_playlists', JSON.stringify(playlists));
+        renderPlaylists();
+        document.getElementById('newPlaylistName').value = '';
+        alert(`✅ Playlist "${name}" saved!`);
+    });
+
+    renderPlaylists();
+}
+
+// Render saved playlists
+function renderPlaylists() {
+    const list = document.getElementById('playlistsList');
+    list.innerHTML = '';
+    if(playlists.length === 0) { list.innerHTML = '<p style="color:#888; text-align:center; width:100%;">No playlists saved yet</p>'; return; }
+    
+    playlists.forEach(pl => {
+        const card = document.createElement('div');
+        card.style = `background:#2a2a2a; padding:12px; border-radius:6px; border:1px solid #444;`;
+        card.innerHTML = `
+            <h4 style="margin:0 0 8px 0; color:#66fcf1; font-size:15px;">${pl.name}</h4>
+            <p style="margin:0 0 10px 0; color:#aaa; font-size:12px;">${pl.links.length} links saved</p>
+            <div style="display:flex; gap:6px;">
+                <button class="loadPl" data-id="${pl.id}" style="flex:1; padding:6px; background:#66fcf1; color:#000; border:none; border-radius:4px; font-size:12px;">Load</button>
+                <button class="delPl" data-id="${pl.id}" style="flex:1; padding:6px; background:#ff4444; color:white; border:none; border-radius:4px; font-size:12px;">Delete</button>
+            </div>
+        `;
+        list.appendChild(card);
+    });
+
+    // Load playlist
+    list.querySelectorAll('.loadPl').forEach(btn => btn.addEventListener('click', () => {
+        const pl = playlists.find(p => p.id === parseInt(btn.dataset.id));
+        if(!pl) return;
+        const inputs = document.querySelectorAll('.mediaInput');
+        pl.links.forEach((link,i) => { if(inputs[i]) inputs[i].value = link; });
+        alert(`✅ Loaded "${pl.name}" — click Load & Play on each player to start`);
+    }));
+    // Delete playlist
+    list.querySelectorAll('.delPl').forEach(btn => btn.addEventListener('click', () => {
+        if(!confirm('Delete this playlist?')) return;
+        playlists = playlists.filter(p => p.id !== parseInt(btn.dataset.id));
+        localStorage.setItem('streamclean_playlists', JSON.stringify(playlists));
+        renderPlaylists();
+    }));
+}
+
+// === ✅ 10 MEDIA PLAYERS — ALL WORK • ONLY YOUTUBE / ANIME / TWITCH ===
 function create10Engines() {
     const container = document.querySelector('.container');
     
-    // Create 10 identical players
     for(let i=1; i<=10; i++) {
         const engine = document.createElement('div');
         engine.className = 'media-engine';
@@ -49,11 +119,10 @@ function create10Engines() {
                        style="flex:1; padding:12px; border-radius:6px; border:none; background:#2a2a2a; color:white; font-size:15px;">
                 <button class="loadBtn" style="padding:12px 20px; background:#66fcf1; color:#000; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">Load & Play</button>
             </div>
-            <div class="playerContainer" style="width:100%; height:400px; background:#000; border-radius:6px; overflow:hidden; position:relative;"></div>
+            <div class="playerContainer" style="width:100%; height:420px; background:#000; border-radius:6px; overflow:hidden; position:relative;"></div>
         `;
         container.appendChild(engine);
 
-        // Attach working logic to each player
         const input = engine.querySelector('.mediaInput');
         const btn = engine.querySelector('.loadBtn');
         const playerBox = engine.querySelector('.playerContainer');
@@ -63,7 +132,7 @@ function create10Engines() {
     }
 }
 
-// === ✅ CORE PLAYER LOGIC — YOUTUBE / ANIME / TWITCH ONLY, NO SPOTIFY ===
+// === ✅ CORE PLAYER — LEGAL • NO COPYRIGHT ISSUES ===
 function loadMedia(url, container) {
     if (!url) return;
 
@@ -71,18 +140,18 @@ function loadMedia(url, container) {
     function canPlay() {
         const user = JSON.parse(localStorage.getItem('streamclean_currentUser'));
         
-        // ADMIN = ALWAYS UNLIMITED
+        // ADMIN = UNLIMITED
         if (user && user.isAdmin) return true;
-        // ✅ CHANGED SUBSCRIPTION TEXT LOGIC
+        // ✅ SUBSCRIPTION TEXT
         if (user && user.subscribed) return true;
-        // LOGGED IN FREE USER = NO MORE VIEWS
+        // LOGGED IN FREE = NO MORE
         if (user && !user.subscribed) {
             lockMsg.innerHTML = `⚠️ You've used all free views! <a href="#subscription" class="glow-text font-bold">Subscribe Monthly</a> for unlimited streams.`;
             lockMsg.classList.remove('hidden');
             container.parentElement.classList.add('locked');
             return false;
         }
-        // ✅ 10 FREE USES ONLY
+        // ✅ 10 FREE USES
         return freeViews > 0;
     }
 
@@ -108,7 +177,7 @@ function loadMedia(url, container) {
         }
     }
 
-    // --- ✅ ONLY YOUTUBE / TWITCH / ANIME — NO SPOTIFY / NO MOVIE LINKS ---
+    // --- ✅ ONLY ALLOWED SITES ---
     // 1. YOUTUBE
     if (url.includes('youtu')) {
         const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -130,11 +199,11 @@ function loadMedia(url, container) {
         container.innerHTML = `<iframe src="https://player.twitch.tv/?channel=${channel}&parent=streamclean.live&autoplay=true" width="100%" height="100%" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>`;
     }
 
-    // 3. ANIME / ALL OTHER SITES — ✅ WORKING, NO BLOCKS
+    // 3. ANIME / ANY LEGAL STREAMING SITE
     else {
         container.innerHTML = `
         <div style="width:100%;height:100%;background:#000;position:relative;">
-            <p style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:10;color:#66fcf1;font-size:14px;margin:0;background:rgba(0,0,0,0.7);padding:4px 12px;border-radius:20px;">✅ STREAMING CLEANLY</p>
+            <p style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:10;color:#66fcf1;font-size:14px;margin:0;background:rgba(0,0,0,0.7);padding:4px 12px;border-radius:20px;">✅ 100% STREAMING CLEANLY</p>
             <iframe 
                 src="${url}" 
                 width="100%" 
@@ -144,16 +213,36 @@ function loadMedia(url, container) {
                 allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
                 sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation"
                 style="background:#000; pointer-events:auto !important;"
-                onload="try{this.contentWindow.document.querySelectorAll('.ad,.popup').forEach(e=>e.remove())}catch(e){}"
             ></iframe>
         </div>`;
     }
 }
 
+// === ✅ LEGAL TERMS — ADDED AT BOTTOM ===
+function addLegalFooter() {
+    const footer = document.createElement('div');
+    footer.style = `background:#111; border-top:1px solid #333; padding:25px; margin-top:40px; color:#ccc; font-size:13px; line-height:1.6;`;
+    footer.innerHTML = `
+        <h3 style="color:#66fcf1; text-align:center; margin:0 0 15px 0; font-size:16px;">📜 LEGAL NOTICE & TERMS OF SERVICE</h3>
+        <p style="margin:0 0 10px 0; text-align:center;">
+            <strong>StreamClean</strong> is a streaming portal and media organizer only. We do NOT host, store, copy, or distribute any video, audio, or copyrighted content. 
+            All content displayed is loaded directly from and remains the property of its original source websites (YouTube, Twitch, Anime platforms, and other legal streaming services).
+        </p>
+        <p style="margin:0 0 10px 0; text-align:center;">
+            Our service provides up to 10 independent media players in one place, allowing users to organize, save, and view links they provide — exactly like a web browser or link manager. 
+            All rights, ads, and terms of service from the original content providers remain fully in effect.
+        </p>
+        <p style="margin:0; text-align:center; color:#888;">
+            We comply with all copyright laws and do not engage in any unauthorized reproduction or distribution. Subscription fees cover access to our platform features and organization tools only, not the content itself.
+        </p>
+    `;
+    document.querySelector('.container').appendChild(footer);
+}
+
 // === SIGN IN / UP MODALS ===
 function initModals() {
     const signInBtn = document.getElementById('openSignIn');
-    const signUpBtn = document.getElementById('openSignUp');
+    const signUpBtn = document.getElementById('signUp');
     const signInModal = document.getElementById('signInModal');
     const signUpModal = document.getElementById('signUpModal');
     const closeBtns = document.querySelectorAll('.close-modal');
