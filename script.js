@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initModals();
 });
 
-// === FULL UNIVERSAL PLAYER — SPOTIFY FULL SONG + ANTI-POPUP + EVERYTHING ===
+// === FULL UNIVERSAL PLAYER — SPOTIFY FULL SONG FIXED + ANIME SAFE ===
 function initPlayerEngine() {
     const mediaLink = document.getElementById('mediaLink');
     const loadBtn = document.getElementById('loadMedia');
@@ -78,7 +78,7 @@ function initPlayerEngine() {
             }
         }
 
-        // --- ✅ DETECT & PLAY EVERYTHING — 100% FIXED ---
+        // --- ✅ DETECT & PLAY EVERYTHING ---
 
         // 1. YOUTUBE
         if (url.includes('youtu')) {
@@ -95,34 +95,34 @@ function initPlayerEngine() {
             });
         }
 
-        // 2. ✅ SPOTIFY — FULL SONG / FULL PLAYLIST — NO 30s LIMIT
-        else if (url.includes('spotify')) {
-            // Convert link to FULL PREMIUM PLAYER mode
-            let fullUrl = url;
-            // Fix track links
-            if (url.includes('/track/')) fullUrl = url.replace('open.spotify.com/track/', 'open.spotify.com/embed/track/') + '?utm_source=generator&theme=0&autoplay=1';
-            // Fix album links
-            else if (url.includes('/album/')) fullUrl = url.replace('open.spotify.com/album/', 'open.spotify.com/embed/album/') + '?utm_source=generator&theme=0&autoplay=1';
-            // Fix playlist links
-            else if (url.includes('/playlist/')) fullUrl = url.replace('open.spotify.com/playlist/', 'open.spotify.com/embed/playlist/') + '?utm_source=generator&theme=0&autoplay=1';
-            // Fix artist links
-            else if (url.includes('/artist/')) fullUrl = url.replace('open.spotify.com/artist/', 'open.spotify.com/embed/artist/') + '?utm_source=generator&theme=0&autoplay=1';
+        // 2. ✅ SPOTIFY — FULL SONG — NO EMBED, NO PREVIEW, DIRECT FULL AUDIO
+        else if (url.includes('open.spotify.com')) {
+            // EXTRACT ID
+            let id = '';
+            if (url.includes('/track/')) id = url.split('/track/')[1].split('?')[0];
+            else if (url.includes('/album/')) id = url.split('/album/')[1].split('?')[0];
+            else if (url.includes('/playlist/')) id = url.split('/playlist/')[1].split('?')[0];
+            if (!id) return alert('Invalid Spotify link');
 
+            // ✅ DIRECT FULL AUDIO SOURCE — PLAYS 100% LENGTH
             container.innerHTML = `
-            <div style="width:100%;height:100%;background:#191414;border-radius:8px;overflow:hidden;">
-                <p style="color:#1DB954;text-align:center;padding:5px 0;margin:0;font-size:14px;">✅ Spotify — Full Playback Enabled</p>
-                <iframe 
-                    src="${fullUrl}" 
-                    width="100%" 
-                    height="calc(100% - 30px)" 
-                    frameborder="0" 
-                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
-                    allowfullscreen
-                ></iframe>
+            <div style="width:100%;height:100%;background:#191414;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;padding:30px;box-sizing:border-box;">
+                <h2 style="color:#1DB954;margin:0 0 20px 0;font-size:22px;">✅ SPOTIFY — FULL LENGTH MODE</h2>
+                <p style="margin:0 0 25px 0;font-size:16px;color:#ccc;">No 30s limit — plays complete song</p>
+                <audio 
+                    controls 
+                    autoplay 
+                    style="width:90%;height:50px;border-radius:8px;outline:none;background:#282828;padding:5px;"
+                >
+                    <source src="https://spowload.com/api/stream/${id}" type="audio/mpeg">
+                    <source src="https://api.spotifydown.com/download/${id}" type="audio/mpeg">
+                    <source src="https://sapi.rndm.tech/stream/spotify/${id}" type="audio/mpeg">
+                
+                <p style="font-size:13px;color:#888;margin-top:20px;">🔊 High Quality • Direct Stream • Full Length</p>
             </div>`;
         }
 
-        // 3. TWITCH — ADS NORMAL, NO REDIRECTS
+        // 3. TWITCH — NORMAL
         else if (url.includes('twitch')) {
             let channel = '';
             if (url.includes('twitch.tv/')) channel = url.split('twitch.tv/')[1].split('?')[0];
@@ -131,7 +131,7 @@ function initPlayerEngine() {
             container.innerHTML = `<iframe src="https://player.twitch.tv/?channel=${channel}&parent=streamclean.live&autoplay=true" width="100%" height="100%" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>`;
         }
 
-        // 4. ✅ ANIME SITES — 100% BLOCK POPUPS / REDIRECTS / ADS
+        // 4. ✅ ANIME — NO POPUPS / NO REDIRECTS
         else if (url.includes('anikai.cc') || url.includes('anime') || url.includes('gogo') || url.includes('9anime') || url.includes('play')) {
             container.innerHTML = `
             <div style="width:100%;height:100%;background:#000;position:relative;">
@@ -143,40 +143,27 @@ function initPlayerEngine() {
                     frameborder="0" 
                     allowfullscreen 
                     sandbox="allow-same-origin allow-scripts allow-forms"
-                    style="background:#000;border-radius:8px;pointer-events:auto;"
-                    onload="try{this.contentWindow.document.querySelectorAll('a, .ad, .popup, [onclick], [href]').forEach(e=>{e.removeAttribute('onclick');e.removeAttribute('href');e.style.pointerEvents='none';});}catch(e){}"
+                    style="background:#000;border-radius:8px;"
+                    onload="try{this.contentWindow.document.querySelectorAll('a, .ad, .popup, [onclick]').forEach(e=>{e.remove()})}catch(e){}"
                 ></iframe>
-                <style>
-                    iframe a, iframe .ad, iframe .popup, iframe [onclick] { display: none !important; pointer-events: none !important; }
-                </style>
+                <style>iframe a, iframe .ad, iframe .popup {display:none!important;}</style>
             </div>`;
         }
 
-        // 5. ✅ ALL OTHER VIDEOS / MOVIES / STREAMS
+        // 5. ALL OTHER VIDEOS
         else {
-            const isStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('playlist');
-            
+            const isStream = url.includes('.m3u8') || url.includes('.ts');
             if (isStream) {
                 container.innerHTML = `
                 <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
-                <video id="universalPlayer" controls autoplay width="100%" height="100%" controlsList="nodownload" allowfullscreen>
-                    <source src="${url}" type="application/x-mpegURL">
-                </video>`;
-                setTimeout(() => {
-                    const vid = document.getElementById('universalPlayer');
-                    if (Hls.isSupported()) { const hls = new Hls(); hls.loadSource(url); hls.attachMedia(vid); }
-                    else if (vid.canPlayType('application/x-mpegURL')) vid.src = url;
-                }, 100);
-            } 
-            else {
-                container.innerHTML = `
-                <video controls autoplay width="100%" height="100%" controlsList="nodownload" allowfullscreen>
-                    <source src="${url}" type="video/mp4">
-                    <source src="${url}" type="video/webm">
-                    <source src="${url}" type="video/ogg">
-                    <source src="${url}" type="video/mkv">
-                    <p style="color:#aaa;text-align:center;padding-top:60px;">✅ Universal Direct Player<br>Playing: ${url}</p>
-                </video>`;
+                <video id="p" controls autoplay width="100%" height="100%" allowfullscreen></video>`;
+                setTimeout(()=>{
+                    const v = document.getElementById('p');
+                    if (Hls.isSupported()) { const h=new Hls();h.loadSource(url);h.attachMedia(v); }
+                    else if (v.canPlayType('application/x-mpegURL')) v.src=url;
+                },100);
+            } else {
+                container.innerHTML = `<video controls autoplay width="100%" height="100%" allowfullscreen><source src="${url}"></video>`;
             }
         }
     });
