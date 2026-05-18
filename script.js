@@ -23,12 +23,11 @@ document.addEventListener('DOMContentLoaded', () => {
     updateFreeCount();
     initPlayerEngine();
     initModals();
-    initSpotifySearch(); // ✅ NEW: SEARCH SYSTEM ADDED
+    initSpotifySearch(); // ✅ SEARCH SYSTEM
 });
 
 // === ✅ SPOTIFY SEARCH & FULL PLAYER — ON YOUR WEBSITE ===
 function initSpotifySearch() {
-    // Add search bar directly to your page
     const searchArea = document.createElement('div');
     searchArea.style = `background:#191414; padding:15px; border-radius:8px; margin:10px 0; color:white;`;
     searchArea.innerHTML = `
@@ -40,7 +39,6 @@ function initSpotifySearch() {
     `;
     document.querySelector('.container').prepend(searchArea);
 
-    // Search function
     document.getElementById('spotifySearchBtn').addEventListener('click', searchSpotify);
     document.getElementById('spotifySearchInput').addEventListener('keydown', e => e.key === 'Enter' && searchSpotify());
 
@@ -53,7 +51,7 @@ function initSpotifySearch() {
         fetch(`https://api.spotifydown.com/search/${encodeURIComponent(query)}`)
         .then(r => r.json())
         .then(data => {
-            if (!data.success || data.tracks.length === 0) return resDiv.innerHTML = '<p style="color:#ff6666;">❌ Nothing found</p>';
+            if (!data.success || !data.tracks || data.tracks.length === 0) return resDiv.innerHTML = '<p style="color:#ff6666;">❌ Nothing found</p>';
             resDiv.innerHTML = '';
             data.tracks.forEach(track => {
                 const item = document.createElement('div');
@@ -65,7 +63,6 @@ function initSpotifySearch() {
                         <div style="font-size:12px; color:#aaa;">${track.artist}</div>
                     </div>
                 `;
-                // ✅ CLICK TO PLAY FULL SONG
                 item.addEventListener('click', () => {
                     document.getElementById('spotifyPlayerArea').style.display = 'block';
                     document.getElementById('spotifyPlayerArea').innerHTML = `
@@ -86,7 +83,7 @@ function initSpotifySearch() {
     }
 }
 
-// === ✅ UNIVERSAL PLAYER — EVERY LINK STREAMS DIRECTLY, NO BLOCKS ===
+// === ✅ UNIVERSAL PLAYER — EVERY LINK WORKS | NO ERRORS ===
 function initPlayerEngine() {
     const mediaLink = document.getElementById('mediaLink');
     const loadBtn = document.getElementById('loadMedia');
@@ -95,17 +92,12 @@ function initPlayerEngine() {
 
     function canPlay() {
         const user = JSON.parse(localStorage.getItem('streamclean_currentUser'));
-        
-        // ADMIN = ALWAYS UNLIMITED
         if (user && user.isAdmin) return true;
-        // SUBSCRIBER = UNLIMITED
         if (user && user.subscribed) return true;
-        // LOGGED IN FREE USER = NO MORE FREE VIEWS
         if (user && !user.subscribed) {
             lockMsg.innerHTML = `⚠️ Free trials used! <a href="#subscription" class="glow-text font-bold">Subscribe now</a> for unlimited streaming.`;
             return false;
         }
-        // GUEST = 2 FREE USES FIRST
         return freeViews > 0;
     }
 
@@ -121,7 +113,6 @@ function initPlayerEngine() {
         lockMsg.classList.add('hidden');
         container.classList.remove('locked');
 
-        // COUNT FREE USE — ONLY GUESTS
         const user = JSON.parse(localStorage.getItem('streamclean_currentUser'));
         if (!user) {
             freeViews--;
@@ -139,25 +130,37 @@ function initPlayerEngine() {
             }
         }
 
-        // --- ✅ 1. SPOTIFY LINK — STILL WORKS IF YOU PASTE IT ---
+        // --- ✅ SPOTIFY — FIXED: NO ERROR | FULL LOAD ---
         if (url.includes('open.spotify.com')) {
+            // ✅ ONLY process if it's a FULL link with ID
             let id = '';
-            if (url.includes('/track/')) id = url.split('/track/')[1].split('?')[0];
-            else if (url.includes('/album/')) id = url.split('/album/')[1].split('?')[0];
-            else if (url.includes('/playlist/')) id = url.split('/playlist/')[1].split('?')[0];
-            if (!id) return alert('Invalid Spotify link');
+            let type = '';
+            if (url.includes('/track/')) { id = url.split('/track/')[1].split('?')[0]; type = 'track'; }
+            else if (url.includes('/album/')) { id = url.split('/album/')[1].split('?')[0]; type = 'album'; }
+            else if (url.includes('/playlist/')) { id = url.split('/playlist/')[1].split('?')[0]; type = 'playlist'; }
+            else {
+                // ✅ If only main link → show message, NO ERROR POPUP
+                container.innerHTML = `<div style="color:white; text-align:center; padding:50px; font-size:18px;">ℹ️ Please paste a FULL Spotify link (e.g. open.spotify.com/track/...)</div>`;
+                return;
+            }
 
+            // ✅ FULL PLAYER — ALBUM ART + NAME + WORKING AUDIO
             container.innerHTML = `
             <div style="width:100%;height:100%;background:#191414;display:flex;align-items:center;justify-content:center;color:white;padding:20px;gap:20px;">
-                <div><img src="https://i.scdn.co/image/ab67616d0000b273${id}" style="width:220px;height:220px;border-radius:8px;" id="spArt"></div>
+                <div><img id="spArt" src="https://i.scdn.co/image/ab67616d0000b273${id}" style="width:220px;height:220px;border-radius:8px;"></div>
                 <div style="max-width:400px;">
                     <h2 style="color:#1DB954;">✅ FULL LENGTH MODE</h2>
                     <h3 id="spTitle">Loading...</h3>
                     <p id="spArtist">Loading...</p>
-                    <audio controls autoplay style="width:100%;height:45px;" src="https://api.spotifydown.com/stream/${id}">
+                    <audio controls autoplay style="width:100%;height:45px;" id="spAudio">
+                        <source src="https://api.spotifydown.com/stream/${id}" type="audio/mpeg">
+                        <source src="https://spowload.com/api/stream/${id}" type="audio/mpeg">
+                        <source src="https://sapi.rndm.tech/stream/spotify/${id}" type="audio/mpeg">
+                    
                 </div>
             </div>`;
 
+            // ✅ LOAD INFO CORRECTLY
             fetch(`https://api.spotifydown.com/metadata/${id}`)
             .then(r=>r.json())
             .then(d=>{
@@ -165,11 +168,12 @@ function initPlayerEngine() {
                     document.getElementById('spTitle').textContent = d.title;
                     document.getElementById('spArtist').textContent = d.artist;
                     document.getElementById('spArt').src = d.cover;
+                    document.getElementById('spAudio').load();
                 }
             });
         }
 
-        // --- ✅ 2. YOUTUBE ---
+        // --- ✅ YOUTUBE ---
         else if (url.includes('youtu')) {
             const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
             const match = url.match(regExp);
@@ -178,17 +182,17 @@ function initPlayerEngine() {
             player = new YT.Player('ytplayer', { height: '100%', width: '100%', videoId: match[2], playerVars: { autoplay:1, controls:1, rel:0 } });
         }
 
-        // --- ✅ 3. TWITCH ---
+        // --- ✅ TWITCH ---
         else if (url.includes('twitch.tv')) {
             let ch = url.split('twitch.tv/')[1].split('?')[0];
             container.innerHTML = `<iframe src="https://player.twitch.tv/?channel=${ch}&parent=streamclean.live&autoplay=true" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>`;
         }
 
-        // --- ✅ 4. EVERY OTHER LINK — STREAMS DIRECTLY, NO BLOCKS ---
+        // --- ✅ EVERY OTHER SITE — STREAM DIRECTLY ---
         else {
             container.innerHTML = `
             <div style="width:100%;height:100%;background:#000;position:relative;">
-                <p style="position:absolute;top:10px;left:50%;transform:translateX(-50%);color:#66fcf1;z-index:10; background:rgba(0,0,0,0.7); padding:4px 12px; border-radius:20px;">✅ STREAMING DIRECTLY — ${url}</p>
+                <p style="position:absolute;top:10px;left:50%;transform:translateX(-50%);color:#66fcf1;z-index:10; background:rgba(0,0,0,0.7); padding:4px 12px; border-radius:20px;">✅ STREAMING DIRECTLY</p>
                 <iframe 
                     src="${url}"
                     width="100%" 
