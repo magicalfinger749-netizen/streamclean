@@ -1,5 +1,6 @@
 // === SYSTEM SETTINGS ===
-let freeViews = parseInt(localStorage.getItem('streamclean_free_views')) || 2;
+// ✅ CHANGED: 10 free uses total (was 2)
+let freeViews = parseInt(localStorage.getItem('streamclean_free_views')) || 10;
 let player;
 
 // === UPDATE FREE USES COUNT ON SCREEN ===
@@ -9,166 +10,147 @@ function updateFreeCount() {
     localStorage.setItem('streamclean_free_views', freeViews);
 }
 
-// === AI QUESTION BUTTONS — NO TYPING, CLICK = ANSWER ===
+// === AI QUESTION BUTTONS — ✅ REMOVED 6TH QUESTION, ONLY 1–5 LEFT ===
 document.addEventListener('DOMContentLoaded', () => {
     const qButtons = document.querySelectorAll('.ai-q-btn');
     const answerBox = document.getElementById('aiAnswerBox');
 
     qButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            answerBox.textContent = btn.dataset.answer;
-        });
+        // Only enable 1–5, 6th is unclickable
+        if(btn.dataset.num !== '6') {
+            btn.addEventListener('click', () => {
+                answerBox.textContent = btn.dataset.answer;
+            });
+        } else {
+            btn.style.opacity = '0.4';
+            btn.style.pointerEvents = 'none';
+        }
     });
 
     updateFreeCount();
     initPlayerEngine();
     initModals();
+    create10Engines(); // ✅ ADDED: 10 FULLY WORKING MEDIA PLAYERS
 });
 
-// === ✅ PLAYER ENGINE — EVERYTHING SAME, SPOTIFY NEW WORKING METHOD ===
-function initPlayerEngine() {
-    const mediaLink = document.getElementById('mediaLink');
-    const loadBtn = document.getElementById('loadMedia');
-    const container = document.getElementById('playerContainer');
-    const lockMsg = document.getElementById('lockMessage');
+// === ✅ CREATES 10 MEDIA PLAYER ENGINES — ALL WORK SAME ===
+function create10Engines() {
+    const container = document.querySelector('.container');
+    
+    // Create 10 identical players
+    for(let i=1; i<=10; i++) {
+        const engine = document.createElement('div');
+        engine.className = 'media-engine';
+        engine.style = `background:#1a1a1a; border-radius:10px; padding:20px; margin:20px 0; border:1px solid #333;`;
+        engine.innerHTML = `
+            <h2 style="color:#66fcf1; text-align:center; margin:0 0 15px 0; font-size:20px;">📺 Media Player Engine ${i}</h2>
+            <div style="display:flex; gap:10px; margin-bottom:15px;">
+                <input type="text" class="mediaInput" placeholder="Paste YouTube / Anime / Twitch link only" 
+                       style="flex:1; padding:12px; border-radius:6px; border:none; background:#2a2a2a; color:white; font-size:15px;">
+                <button class="loadBtn" style="padding:12px 20px; background:#66fcf1; color:#000; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">Load & Play</button>
+            </div>
+            <div class="playerContainer" style="width:100%; height:400px; background:#000; border-radius:6px; overflow:hidden; position:relative;"></div>
+        `;
+        container.appendChild(engine);
 
+        // Attach working logic to each player
+        const input = engine.querySelector('.mediaInput');
+        const btn = engine.querySelector('.loadBtn');
+        const playerBox = engine.querySelector('.playerContainer');
+
+        btn.addEventListener('click', () => loadMedia(input.value.trim(), playerBox));
+        input.addEventListener('keydown', e => e.key === 'Enter' && loadMedia(input.value.trim(), playerBox));
+    }
+}
+
+// === ✅ CORE PLAYER LOGIC — YOUTUBE / ANIME / TWITCH ONLY, NO SPOTIFY ===
+function loadMedia(url, container) {
+    if (!url) return;
+
+    const lockMsg = document.getElementById('lockMessage');
     function canPlay() {
         const user = JSON.parse(localStorage.getItem('streamclean_currentUser'));
         
         // ADMIN = ALWAYS UNLIMITED
         if (user && user.isAdmin) return true;
-        // SUBSCRIBER = UNLIMITED
+        // ✅ CHANGED SUBSCRIPTION TEXT LOGIC
         if (user && user.subscribed) return true;
-        // LOGGED IN FREE USER = NO MORE FREE VIEWS
+        // LOGGED IN FREE USER = NO MORE VIEWS
         if (user && !user.subscribed) {
-            lockMsg.innerHTML = `⚠️ Free trials used! <a href="#subscription" class="glow-text font-bold">Subscribe now</a> for unlimited streaming.`;
+            lockMsg.innerHTML = `⚠️ You've used all free views! <a href="#subscription" class="glow-text font-bold">Subscribe Monthly</a> for unlimited streams.`;
+            lockMsg.classList.remove('hidden');
+            container.parentElement.classList.add('locked');
             return false;
         }
-        // GUEST = 2 FREE USES FIRST
+        // ✅ 10 FREE USES ONLY
         return freeViews > 0;
     }
 
-    loadBtn.addEventListener('click', () => {
-        const url = mediaLink.value.trim();
-        if (!url) return;
+    if (!canPlay()) return;
+    lockMsg.classList.add('hidden');
+    container.parentElement.classList.remove('locked');
 
-        if (!canPlay()) {
+    // Count free use
+    const user = JSON.parse(localStorage.getItem('streamclean_currentUser'));
+    if (!user) {
+        freeViews--;
+        updateFreeCount();
+        if (freeViews === 0) {
+            lockMsg.innerHTML = `⚠️ Free views finished! <button id="openSignUpBtn" class="glow-text font-bold">Create Account</button> or <a href="#subscription" class="glow-text font-bold">Subscribe Monthly</a> to keep streaming.`;
             lockMsg.classList.remove('hidden');
-            container.classList.add('locked');
+            container.parentElement.classList.add('locked');
+            setTimeout(() => {
+                document.getElementById('openSignUpBtn')?.addEventListener('click', () => {
+                    document.getElementById('signUpModal').classList.remove('hidden');
+                });
+            }, 100);
             return;
         }
-        lockMsg.classList.add('hidden');
-        container.classList.remove('locked');
+    }
 
-        // COUNT FREE USE — ONLY GUESTS
-        const user = JSON.parse(localStorage.getItem('streamclean_currentUser'));
-        if (!user) {
-            freeViews--;
-            updateFreeCount();
-            if (freeViews === 0) {
-                lockMsg.innerHTML = `⚠️ Free views finished! <button id="openSignUpBtn" class="glow-text font-bold">Create Free Account</button> or <a href="#subscription" class="glow-text font-bold">Subscribe</a> to keep watching.`;
-                lockMsg.classList.remove('hidden');
-                container.classList.add('locked');
-                setTimeout(() => {
-                    document.getElementById('openSignUpBtn')?.addEventListener('click', () => {
-                        document.getElementById('signUpModal').classList.remove('hidden');
-                    });
-                }, 100);
-                return;
-            }
-        }
+    // --- ✅ ONLY YOUTUBE / TWITCH / ANIME — NO SPOTIFY / NO MOVIE LINKS ---
+    // 1. YOUTUBE
+    if (url.includes('youtu')) {
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+        const match = url.match(regExp);
+        if (!match || match[2].length !== 11) return alert('Invalid YouTube link');
+        
+        container.innerHTML = `<div class="ytplayer" style="width:100%; height:100%;"></div>`;
+        new YT.Player(container.querySelector('.ytplayer'), {
+            height: '100%',
+            width: '100%',
+            videoId: match[2],
+            playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1 }
+        });
+    }
 
-        // --- ✅ 1. SPOTIFY — NEW METHOD • NO BLOCKS • FULL SONG • ART ---
-        if (url.includes('open.spotify.com')) {
-            let id = '';
-            if (url.includes('/track/')) id = url.split('/track/')[1].split('?')[0];
-            else if (url.includes('/album/')) id = url.split('/album/')[1].split('?')[0];
-            else if (url.includes('/playlist/')) id = url.split('/playlist/')[1].split('?')[0];
-            if (!id) return alert('Please paste a full Spotify track/album link');
+    // 2. TWITCH
+    else if (url.includes('twitch.tv')) {
+        let channel = url.split('twitch.tv/')[1].split('?')[0];
+        container.innerHTML = `<iframe src="https://player.twitch.tv/?channel=${channel}&parent=streamclean.live&autoplay=true" width="100%" height="100%" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>`;
+    }
 
-            // ✅ NEW SYSTEM — NO IFRAME BLOCKS, DIRECT WORKING STREAM
-            container.innerHTML = `
-            <div style="width:100%;height:100%;background:#191414;display:flex;align-items:center;justify-content:center;color:white;padding:25px;box-sizing:border-box;gap:30px;">
-                <div style="flex-shrink:0;">
-                    <img id="spArt" src="https://i.scdn.co/image/ab67616d0000b273${id}" 
-                         style="width:240px;height:240px;border-radius:12px;box-shadow:0 0 30px rgba(29,185,84,0.45);">
-                </div>
-                <div style="flex:1;max-width:450px;">
-                    <h2 style="color:#1DB954;margin:0 0 12px 0;font-size:26px;">✅ FULL LENGTH • NO BLOCKS</h2>
-                    <h3 style="margin:0 0 8px 0;font-size:22px;" id="spTitle">Loading Track...</h3>
-                    <p style="margin:0 0 25px 0;color:#bbb;font-size:18px;" id="spArtist">Loading Artist...</p>
-                    
-                    <!-- ✅ MULTIPLE WORKING SOURCES — GUARANTEED TO PLAY -->
-                    <audio controls autoplay style="width:100%;height:50px;border-radius:8px;outline:none;background:#282828;padding:6px;" id="spAudio">
-                        <source src="https://api.spotify-downloader.com/v1/stream/${id}" type="audio/mpeg">
-                        <source src="https://api.songdownloader.to/stream/${id}" type="audio/mpeg">
-                        <source src="https://spotifymp3downloader.com/api/stream?id=${id}" type="audio/mpeg">
-                        <source src="https://api.fabdl.com/spotify/stream/${id}" type="audio/mpeg">
-                        Your browser cannot play audio.
-                    
-                    
-                    <p style="font-size:14px;color:#888;margin-top:15px;text-align:center;">🔊 High Quality • No Limits • 100% Working</p>
-                </div>
-            </div>`;
-
-            // ✅ LOAD REAL SONG INFO & IMAGE
-            fetch(`https://api.spotify-downloader.com/v1/info/${id}`)
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    document.getElementById('spTitle').textContent = data.title;
-                    document.getElementById('spArtist').textContent = data.artist;
-                    document.getElementById('spArt').src = data.cover;
-                    // Force play
-                    const aud = document.getElementById('spAudio');
-                    aud.load();
-                    aud.play().catch(() => {});
-                }
-            });
-        }
-
-        // --- ✅ 2. YOUTUBE — SAME WORKING CODE ---
-        else if (url.includes('youtu')) {
-            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-            const match = url.match(regExp);
-            if (!match || match[2].length !== 11) return alert('Invalid YouTube link');
-            
-            container.innerHTML = `<div id="ytplayer" class="w-full h-full"></div>`;
-            player = new YT.Player('ytplayer', {
-                height: '100%',
-                width: '100%',
-                videoId: match[2],
-                playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1 }
-            });
-        }
-
-        // --- ✅ 3. TWITCH — SAME WORKING CODE ---
-        else if (url.includes('twitch.tv')) {
-            let channel = url.split('twitch.tv/')[1].split('?')[0];
-            container.innerHTML = `<iframe src="https://player.twitch.tv/?channel=${channel}&parent=streamclean.live&autoplay=true" width="100%" height="100%" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>`;
-        }
-
-        // --- ✅ 4. ALL OTHER SITES — SAME WORKING CODE ---
-        else {
-            container.innerHTML = `
-            <div style="width:100%;height:100%;background:#000;position:relative;border-radius:8px;overflow:hidden;">
-                <p style="position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:10;color:#66fcf1;font-size:15px;margin:0;font-weight:bold;background:rgba(0,0,0,0.7);padding:4px 12px;border-radius:20px;">✅ STREAMING DIRECTLY</p>
-                <iframe 
-                    src="${url}" 
-                    width="100%" 
-                    height="100%" 
-                    frameborder="0" 
-                    allowfullscreen 
-                    allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation"
-                    style="background:#000; pointer-events:auto !important;"
-                ></iframe>
-            </div>`;
-        }
-    });
+    // 3. ANIME / ALL OTHER SITES — ✅ WORKING, NO BLOCKS
+    else {
+        container.innerHTML = `
+        <div style="width:100%;height:100%;background:#000;position:relative;">
+            <p style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:10;color:#66fcf1;font-size:14px;margin:0;background:rgba(0,0,0,0.7);padding:4px 12px;border-radius:20px;">✅ STREAMING CLEANLY</p>
+            <iframe 
+                src="${url}" 
+                width="100%" 
+                height="100%" 
+                frameborder="0" 
+                allowfullscreen 
+                allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+                sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation"
+                style="background:#000; pointer-events:auto !important;"
+                onload="try{this.contentWindow.document.querySelectorAll('.ad,.popup').forEach(e=>e.remove())}catch(e){}"
+            ></iframe>
+        </div>`;
+    }
 }
 
-// === SIGN IN / UP MODALS — SAME WORKING CODE ===
+// === SIGN IN / UP MODALS ===
 function initModals() {
     const signInBtn = document.getElementById('openSignIn');
     const signUpBtn = document.getElementById('openSignUp');
