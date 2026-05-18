@@ -47,14 +47,49 @@ function saveDB(data) {
 // --------------------------
 // EMAIL SYSTEM
 // --------------------------
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: EMAIL_USER,
-        pass: EMAIL_PASS
-    }
-});
+// --- SEND VERIFICATION EMAIL ---
+const verifyLink = `${YOUR_WEBSITE_URL}/verify?email=${encodeURIComponent(email)}`;
 
+await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+        "accept": "application/json",
+        "api-key": BREVO_API_KEY,
+        "content-type": "application/json"
+    },
+    body: JSON.stringify({
+        sender: { name: "StreamClean Team", email: "no-reply@streamclean.live" },
+        to: [{ email: email }],
+        subject: "✅ Verify your StreamClean account",
+        htmlContent: `
+            <h2>Welcome to StreamClean!</h2>
+            <p>Click below to verify:</p>
+            <a href="${verifyLink}" style="background:#66fcf1; color:black; padding:14px 28px; text-decoration:none; border-radius:6px; font-weight:bold;">✅ VERIFY MY EMAIL</a>
+            <p>Link: ${verifyLink}</p>
+        `
+    })
+});// --- SEND PASSWORD RESET EMAIL ---
+const resetLink = `${YOUR_WEBSITE_URL}/reset-password?email=${encodeURIComponent(email)}`;
+
+await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+        "accept": "application/json",
+        "api-key": BREVO_API_KEY,
+        "content-type": "application/json"
+    },
+    body: JSON.stringify({
+        sender: { name: "StreamClean Team", email: "no-reply@streamclean.live" },
+        to: [{ email: email }],
+        subject: "🔑 Reset your StreamClean password",
+        htmlContent: `
+            <h2>Reset Password</h2>
+            <p>Click below to set new password:</p>
+            <a href="${resetLink}" style="background:#66fcf1; color:black; padding:14px 28px; text-decoration:none; border-radius:6px; font-weight:bold;">🔑 RESET PASSWORD</a>
+            <p>Link: ${resetLink}</p>
+        `
+    })
+});
 // --------------------------
 // ✅ 1. CREATE ACCOUNT + SEND VERIFICATION EMAIL
 // --------------------------
