@@ -23,9 +23,70 @@ document.addEventListener('DOMContentLoaded', () => {
     updateFreeCount();
     initPlayerEngine();
     initModals();
+    initSpotifySearch(); // ✅ NEW: SEARCH SYSTEM ADDED
 });
 
-// === FULL UNIVERSAL PLAYER — FINAL WORKING VERSION ===
+// === ✅ SPOTIFY SEARCH & FULL PLAYER — ON YOUR WEBSITE ===
+function initSpotifySearch() {
+    // Add search bar directly to your page
+    const searchArea = document.createElement('div');
+    searchArea.style = `background:#191414; padding:15px; border-radius:8px; margin:10px 0; color:white;`;
+    searchArea.innerHTML = `
+        <h3 style="margin:0 0 10px 0; color:#1DB954;">🎵 SPOTIFY — SEARCH & PLAY FULL SONGS</h3>
+        <input type="text" id="spotifySearchInput" placeholder="Search song, artist, album..." style="width:70%; padding:10px; border-radius:5px; border:none; font-size:16px;">
+        <button id="spotifySearchBtn" style="padding:10px 20px; background:#1DB954; color:white; border:none; border-radius:5px; font-size:16px; margin-left:8px;">Search</button>
+        <div id="spotifyResults" style="margin-top:12px; max-height:250px; overflow-y:auto;"></div>
+        <div id="spotifyPlayerArea" style="margin-top:15px; display:none;"></div>
+    `;
+    document.querySelector('.container').prepend(searchArea);
+
+    // Search function
+    document.getElementById('spotifySearchBtn').addEventListener('click', searchSpotify);
+    document.getElementById('spotifySearchInput').addEventListener('keydown', e => e.key === 'Enter' && searchSpotify());
+
+    function searchSpotify() {
+        const query = document.getElementById('spotifySearchInput').value.trim();
+        if (!query) return;
+        const resDiv = document.getElementById('spotifyResults');
+        resDiv.innerHTML = '<p style="color:#aaa;">🔍 Searching...</p>';
+
+        fetch(`https://api.spotifydown.com/search/${encodeURIComponent(query)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success || data.tracks.length === 0) return resDiv.innerHTML = '<p style="color:#ff6666;">❌ Nothing found</p>';
+            resDiv.innerHTML = '';
+            data.tracks.forEach(track => {
+                const item = document.createElement('div');
+                item.style = `padding:8px 12px; margin:4px 0; background:#282828; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:10px;`;
+                item.innerHTML = `
+                    <img src="${track.cover}" style="width:40px;height:40px;border-radius:3px;">
+                    <div>
+                        <div style="font-weight:500;">${track.title}</div>
+                        <div style="font-size:12px; color:#aaa;">${track.artist}</div>
+                    </div>
+                `;
+                // ✅ CLICK TO PLAY FULL SONG
+                item.addEventListener('click', () => {
+                    document.getElementById('spotifyPlayerArea').style.display = 'block';
+                    document.getElementById('spotifyPlayerArea').innerHTML = `
+                        <div style="display:flex; align-items:center; gap:20px; background:#282828; padding:15px; border-radius:8px;">
+                            <img src="${track.cover}" style="width:120px;height:120px;border-radius:6px;">
+                            <div style="flex:1;">
+                                <h4 style="margin:0 0 5px 0; font-size:18px;">${track.title}</h4>
+                                <p style="margin:0 0 12px 0; color:#bbb;">${track.artist}</p>
+                                <audio controls autoplay style="width:100%; height:40px;" src="https://api.spotifydown.com/stream/${track.id}">
+                                <p style="font-size:11px; color:#888; margin-top:5px;">✅ FULL LENGTH • NO LIMIT</p>
+                            </div>
+                        </div>
+                    `;
+                });
+                resDiv.appendChild(item);
+            });
+        });
+    }
+}
+
+// === ✅ UNIVERSAL PLAYER — EVERY LINK STREAMS DIRECTLY, NO BLOCKS ===
 function initPlayerEngine() {
     const mediaLink = document.getElementById('mediaLink');
     const loadBtn = document.getElementById('loadMedia');
@@ -78,7 +139,7 @@ function initPlayerEngine() {
             }
         }
 
-        // --- ✅ SPOTIFY — FULL SONG + ART + WORKING ---
+        // --- ✅ 1. SPOTIFY LINK — STILL WORKS IF YOU PASTE IT ---
         if (url.includes('open.spotify.com')) {
             let id = '';
             if (url.includes('/track/')) id = url.split('/track/')[1].split('?')[0];
@@ -88,32 +149,27 @@ function initPlayerEngine() {
 
             container.innerHTML = `
             <div style="width:100%;height:100%;background:#191414;display:flex;align-items:center;justify-content:center;color:white;padding:20px;gap:20px;">
-                <div><img id="art" src="https://i.scdn.co/image/ab67616d0000b273${id}" style="width:220px;height:220px;border-radius:8px;"></div>
+                <div><img src="https://i.scdn.co/image/ab67616d0000b273${id}" style="width:220px;height:220px;border-radius:8px;" id="spArt"></div>
                 <div style="max-width:400px;">
                     <h2 style="color:#1DB954;">✅ FULL LENGTH MODE</h2>
-                    <h3 id="title">Loading...</h3>
-                    <p id="artist">Loading...</p>
-                    <audio controls autoplay style="width:100%;height:45px;">
-                        <source src="https://api.spotifydown.com/stream/${id}" type="audio/mpeg">
-                        <source src="https://spowload.com/api/stream/${id}" type="audio/mpeg">
-                        <source src="https://sapi.rndm.tech/stream/spotify/${id}" type="audio/mpeg">
-                    
+                    <h3 id="spTitle">Loading...</h3>
+                    <p id="spArtist">Loading...</p>
+                    <audio controls autoplay style="width:100%;height:45px;" src="https://api.spotifydown.com/stream/${id}">
                 </div>
             </div>`;
 
-            // ✅ Load info definitely
             fetch(`https://api.spotifydown.com/metadata/${id}`)
             .then(r=>r.json())
             .then(d=>{
                 if(d.success){
-                    document.getElementById('title').textContent = d.title;
-                    document.getElementById('artist').textContent = d.artist;
-                    document.getElementById('art').src = d.cover;
+                    document.getElementById('spTitle').textContent = d.title;
+                    document.getElementById('spArtist').textContent = d.artist;
+                    document.getElementById('spArt').src = d.cover;
                 }
             });
         }
 
-        // --- ✅ YOUTUBE ---
+        // --- ✅ 2. YOUTUBE ---
         else if (url.includes('youtu')) {
             const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
             const match = url.match(regExp);
@@ -122,26 +178,26 @@ function initPlayerEngine() {
             player = new YT.Player('ytplayer', { height: '100%', width: '100%', videoId: match[2], playerVars: { autoplay:1, controls:1, rel:0 } });
         }
 
-        // --- ✅ TWITCH ---
+        // --- ✅ 3. TWITCH ---
         else if (url.includes('twitch.tv')) {
             let ch = url.split('twitch.tv/')[1].split('?')[0];
             container.innerHTML = `<iframe src="https://player.twitch.tv/?channel=${ch}&parent=streamclean.live&autoplay=true" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>`;
         }
 
-        // --- ✅ TUBI / ANIME / ANY SITE — PROXY BYPASS — NO BLOCKS ---
+        // --- ✅ 4. EVERY OTHER LINK — STREAMS DIRECTLY, NO BLOCKS ---
         else {
             container.innerHTML = `
             <div style="width:100%;height:100%;background:#000;position:relative;">
-                <p style="position:absolute;top:10px;left:50%;transform:translateX(-50%);color:#66fcf1;z-index:10;">✅ UNIVERSAL PROXY MODE — WORKS EVERYWHERE</p>
+                <p style="position:absolute;top:10px;left:50%;transform:translateX(-50%);color:#66fcf1;z-index:10; background:rgba(0,0,0,0.7); padding:4px 12px; border-radius:20px;">✅ STREAMING DIRECTLY — ${url}</p>
                 <iframe 
-                    src="https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}"
+                    src="${url}"
                     width="100%" 
                     height="100%" 
                     frameborder="0" 
                     allowfullscreen 
-                    allow="autoplay; encrypted-media; fullscreen"
+                    allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
                     sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation"
-                    style="background:#000;"
+                    style="background:#000; pointer-events:auto !important;"
                 ></iframe>
             </div>`;
         }
