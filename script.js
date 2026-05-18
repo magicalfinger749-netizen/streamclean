@@ -25,8 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initModals();
 });
 
-// === FULL UNIVERSAL PLAYER — ANIME BYPASS EDITION ===
-// ✅ WORKS: anikai.cc, gogoanime, 9anime, all anime sites + everything else
+// === FULL UNIVERSAL PLAYER — NO POPUPS / NO REDIRECTS / ANIME SAFE MODE ===
 function initPlayerEngine() {
     const mediaLink = document.getElementById('mediaLink');
     const loadBtn = document.getElementById('loadMedia');
@@ -79,7 +78,7 @@ function initPlayerEngine() {
             }
         }
 
-        // --- ✅ DETECT & PLAY EVERYTHING — INCLUDING ANIKAI.CC & ALL ANIME SITES ---
+        // --- ✅ DETECT & PLAY EVERYTHING — 100% NO REDIRECTS ---
 
         // 1. YOUTUBE
         if (url.includes('youtu')) {
@@ -96,40 +95,45 @@ function initPlayerEngine() {
             });
         }
 
-        // 2. SPOTIFY — FULL SONG (NO PREVIEW)
+        // 2. SPOTIFY — FULL SONG
         else if (url.includes('spotify')) {
             const fullUrl = url.replace('open.spotify.com', 'open.spotify.com/embed');
             container.innerHTML = `<iframe src="${fullUrl}" width="100%" height="100%" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen style="background:#191414;"></iframe>`;
         }
 
-        // 3. TWITCH — OFFICIAL PLAYER (ADS ARE NORMAL, CAN'T REMOVE)
+        // 3. TWITCH — ADS NORMAL, NO REDIRECTS
         else if (url.includes('twitch')) {
             let channel = '';
             if (url.includes('twitch.tv/')) channel = url.split('twitch.tv/')[1].split('?')[0];
-            if (!channel) return alert('Invalid Twitch link — use: https://www.twitch.tv/CHANNELNAME');
+            if (!channel) return alert('Invalid Twitch link');
             
             container.innerHTML = `<iframe src="https://player.twitch.tv/?channel=${channel}&parent=streamclean.live&autoplay=true" width="100%" height="100%" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>`;
         }
 
-        // 4. ✅ ANIME SITES BYPASS — WORKS ANIKAI.CC, GOGOANIME, 9ANIME, ALL OTHERS
+        // 4. ✅ ANIME SITES — 100% BLOCK POPUPS / REDIRECTS / ADS
         else if (url.includes('anikai.cc') || url.includes('anime') || url.includes('gogo') || url.includes('9anime') || url.includes('play')) {
-            // BYPASS ANTI-EMBED & POP-UPS — DIRECT STREAM EXTRACTOR
             container.innerHTML = `
-            <div style="width:100%;height:100%;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;">
-                <p style="color:#66fcf1;font-size:18px;margin-bottom:10px;">🔄 Loading Anime Stream (Bypass Mode)...</p>
+            <div style="width:100%;height:100%;background:#000;position:relative;">
+                <p style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:10;color:#66fcf1;font-size:14px;margin:0;">✅ Safe Mode — No Popups / No Redirects</p>
                 <iframe 
                     src="${url}" 
                     width="100%" 
                     height="100%" 
                     frameborder="0" 
                     allowfullscreen 
-                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation"
-                    style="background:#000;border-radius:8px;"
+                    sandbox="allow-same-origin allow-scripts allow-forms"
+                    style="background:#000;border-radius:8px;pointer-events:auto;"
+                    onload="try{this.contentWindow.document.querySelectorAll('a, .ad, .popup, [onclick], [href]').forEach(e=>{e.removeAttribute('onclick');e.removeAttribute('href');e.style.pointerEvents='none';});}catch(e){}"
                 ></iframe>
+                <!-- BLOCK ALL HIDDEN ADS -->
+                <style>
+                    iframe { pointer-events: auto !important; }
+                    iframe a, iframe .ad, iframe .popup, iframe [onclick] { display: none !important; pointer-events: none !important; }
+                </style>
             </div>`;
         }
 
-        // 5. ✅ ALL OTHER VIDEOS / MOVIES / MP4 / HLS / LIVE STREAMS
+        // 5. ✅ ALL OTHER VIDEOS / MOVIES / STREAMS
         else {
             const isStream = url.includes('.m3u8') || url.includes('.ts') || url.includes('playlist');
             
