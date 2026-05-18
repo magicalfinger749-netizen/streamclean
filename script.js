@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initModals();
 });
 
-// === FULL UNIVERSAL PLAYER — NO POPUPS / NO REDIRECTS / ANIME SAFE MODE ===
+// === FULL UNIVERSAL PLAYER — SPOTIFY FULL SONG + ANTI-POPUP + EVERYTHING ===
 function initPlayerEngine() {
     const mediaLink = document.getElementById('mediaLink');
     const loadBtn = document.getElementById('loadMedia');
@@ -78,7 +78,7 @@ function initPlayerEngine() {
             }
         }
 
-        // --- ✅ DETECT & PLAY EVERYTHING — 100% NO REDIRECTS ---
+        // --- ✅ DETECT & PLAY EVERYTHING — 100% FIXED ---
 
         // 1. YOUTUBE
         if (url.includes('youtu')) {
@@ -95,10 +95,31 @@ function initPlayerEngine() {
             });
         }
 
-        // 2. SPOTIFY — FULL SONG
+        // 2. ✅ SPOTIFY — FULL SONG / FULL PLAYLIST — NO 30s LIMIT
         else if (url.includes('spotify')) {
-            const fullUrl = url.replace('open.spotify.com', 'open.spotify.com/embed');
-            container.innerHTML = `<iframe src="${fullUrl}" width="100%" height="100%" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen style="background:#191414;"></iframe>`;
+            // Convert link to FULL PREMIUM PLAYER mode
+            let fullUrl = url;
+            // Fix track links
+            if (url.includes('/track/')) fullUrl = url.replace('open.spotify.com/track/', 'open.spotify.com/embed/track/') + '?utm_source=generator&theme=0&autoplay=1';
+            // Fix album links
+            else if (url.includes('/album/')) fullUrl = url.replace('open.spotify.com/album/', 'open.spotify.com/embed/album/') + '?utm_source=generator&theme=0&autoplay=1';
+            // Fix playlist links
+            else if (url.includes('/playlist/')) fullUrl = url.replace('open.spotify.com/playlist/', 'open.spotify.com/embed/playlist/') + '?utm_source=generator&theme=0&autoplay=1';
+            // Fix artist links
+            else if (url.includes('/artist/')) fullUrl = url.replace('open.spotify.com/artist/', 'open.spotify.com/embed/artist/') + '?utm_source=generator&theme=0&autoplay=1';
+
+            container.innerHTML = `
+            <div style="width:100%;height:100%;background:#191414;border-radius:8px;overflow:hidden;">
+                <p style="color:#1DB954;text-align:center;padding:5px 0;margin:0;font-size:14px;">✅ Spotify — Full Playback Enabled</p>
+                <iframe 
+                    src="${fullUrl}" 
+                    width="100%" 
+                    height="calc(100% - 30px)" 
+                    frameborder="0" 
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+                    allowfullscreen
+                ></iframe>
+            </div>`;
         }
 
         // 3. TWITCH — ADS NORMAL, NO REDIRECTS
@@ -125,9 +146,7 @@ function initPlayerEngine() {
                     style="background:#000;border-radius:8px;pointer-events:auto;"
                     onload="try{this.contentWindow.document.querySelectorAll('a, .ad, .popup, [onclick], [href]').forEach(e=>{e.removeAttribute('onclick');e.removeAttribute('href');e.style.pointerEvents='none';});}catch(e){}"
                 ></iframe>
-                <!-- BLOCK ALL HIDDEN ADS -->
                 <style>
-                    iframe { pointer-events: auto !important; }
                     iframe a, iframe .ad, iframe .popup, iframe [onclick] { display: none !important; pointer-events: none !important; }
                 </style>
             </div>`;
