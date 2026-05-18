@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-width=1.0">
+    <title>Streams | StreamClean</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0b0c10',
+                        secondary: '#1f2833',
+                        glass: 'rgba(31, 40, 51, 0.4)',
+                        glassBorder: 'rgba(102, 252, 241, 0.2)',
+                        textLight: '#f8f9fa',
+                        accent: '#66fcf1',
+                        accentDark: '#45a29e',
+                        glow: '#66fcf1',
+                    },
+                    fontFamily: { sans: ['Segoe UI', 'Roboto', 'sans-serif'] },
+                    boxShadow: { glass: '0 8px 32px rgba(0,0,0,0.3)', glow: '0 0 15px rgba(102,252,241,0.5)' }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .glass-card { @apply bg-glass backdrop-blur-xl border border-glassBorder rounded-2xl shadow-glass; }
+            .glow-text { @apply text-accent drop-shadow-[0_0_8px_rgba(102,252,241,0.7)]; }
+            .glow-btn { @apply bg-accent text-primary rounded-lg hover:bg-accentDark hover:shadow-glow transition-all duration-300; }
+            .locked-overlay { @apply absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center rounded-2xl; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-primary via-secondary to-primary min-h-screen text-textLight font-sans">
+
+    <nav class="fixed w-full top-0 z-50 glass-card px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3"><h1 class="glow-text text-2xl font-bold">StreamClean</h1></div>
+        <div class="hidden md:flex items-center gap-8" id="navBar">
+            <a href="index.html" class="glow-text font-semibold hover:scale-105 transition">🏠 Home</a>
+            <a href="streams.html" class="glow-text font-semibold">📺 Streams</a>
+            <a href="profile.html" class="hover:text-accent transition-colors">👤 My Profile</a>
+            <button onclick="logoutUser()" class="px-5 py-2 border border-red-400 text-red-400 rounded-lg hover:bg-red-500/20 transition-all">Logout</button>
+        </div>
+    </nav>
+
+    <main class="pt-28 px-4 md:px-8 pb-20 max-w-7xl mx-auto">
+        <h2 class="text-4xl font-bold text-center mb-12 glow-text">📺 All Streams</h2>
+
+        <!-- IF NOT SUBSCRIBED — SHOW LOCKED MESSAGE -->
+        <div id="subscriptionLock" class="glass-card p-10 text-center shadow-glow mb-12 border-2 border-yellow-500/50">
+            <i class="fa fa-lock text-5xl text-yellow-400 mb-4"></i>
+            <h3 class="text-2xl font-bold mb-2">🔒 Unlimited Access Required</h3>
+            <p class="text-gray-300 mb-6 max-w-xl mx-auto">Subscribe once to unlock EVERYTHING — all streams, all quality options, forever. No limits, no extra fees.</p>
+            <!-- ✅ YOUR STRIPE LINK READY HERE -->
+            <a href="https://stripe.com/your-link-here" target="_blank" class="glow-btn px-8 py-4 text-lg font-bold inline-block">
+                💳 Subscribe Now — Get Unlimited Access
+            </a>
+        </div>
+
+        <!-- UNLOCKED STREAMS — ONLY VISIBLE AFTER SUBSCRIPTION -->
+        <div id="unlockedStreams" class="hidden">
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Stream Item 1 -->
+                <div class="glass-card overflow-hidden relative group">
+                    <img src="https://picsum.photos/id/1059/600/400" alt="Stream" class="w-full h-48 object-cover">
+                    <div class="p-4">
+                        <h4 class="text-xl font-semibold mb-1">Live Sports HD</h4>
+                        <p class="text-gray-400 text-sm">1080p • 60fps • No Ads</p>
+                        <button class="w-full mt-3 glow-btn py-2">▶️ Watch Now</button>
+                    </div>
+                </div>
+
+                <!-- Stream Item 2 -->
+                <div class="glass-card overflow-hidden relative group">
+                    <img src="https://picsum.photos/id/1035/600/400" alt="Stream" class="w-full h-48 object-cover">
+                    <div class="p-4">
+                        <h4 class="text-xl font-semibold mb-1">Movies & Series 4K</h4>
+                        <p class="text-gray-400 text-sm">4K HDR • Dolby Audio • Unlimited</p>
+                        <button class="w-full mt-3 glow-btn py-2">▶️ Watch Now</button>
+                    </div>
+                </div>
+
+                <!-- Stream Item 3 -->
+                <div class="glass-card overflow-hidden relative group">
+                    <img src="https://picsum.photos/id/1046/600/400" alt="Stream" class="w-full h-48 object-cover">
+                    <div class="p-4">
+                        <h4 class="text-xl font-semibold mb-1">News & Live TV</h4>
+                        <p class="text-gray-400 text-sm">24/7 • All Channels • Buffer-Free</p>
+                        <button class="w-full mt-3 glow-btn py-2">▶️ Watch Now</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="auth.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if logged in
+            const user = JSON.parse(localStorage.getItem('streamclean_currentUser'));
+            if (!user) return window.location.href = 'index.html';
+
+            // ✅ UNLOCK IF SUBSCRIBED
+            if (user.subscribed) {
+                document.getElementById('subscriptionLock').classList.add('hidden');
+                document.getElementById('unlockedStreams').classList.remove('hidden');
+            }
+
+            // ✅ ADMIN ONLY: TOGGLE SUBSCRIPTION (for you to test)
+            window.toggleSubscription = function() {
+                user.subscribed = !user.subscribed;
+                // Save updated user
+                const allUsers = JSON.parse(localStorage.getItem('streamclean_users'));
+                const updated = allUsers.map(u => u.email === user.email ? user : u);
+                localStorage.setItem('streamclean_users', JSON.stringify(updated));
+                localStorage.setItem('streamclean_currentUser', JSON.stringify(user));
+                location.reload();
+            };
+        });
+    </script>
+</body>
+</html>
