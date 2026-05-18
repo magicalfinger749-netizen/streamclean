@@ -92,5 +92,24 @@ window.updateSubscription = function(email) {
         current.subscribed = true;
         localStorage.setItem('streamclean_currentUser', JSON.stringify(current));
     }
-};
+};// === UPDATE NAVIGATION — ADMIN LINK ONLY FOR YOU ===
+function updateUIforLoggedInUser() {
+    const currentUser = JSON.parse(localStorage.getItem('streamclean_currentUser'));
+    if (!currentUser) return;
+
+    // ✅ ONLY YOU SEE THE ADMIN LINK — NO ONE ELSE
+    const adminLink = currentUser.isAdmin 
+        ? `<a href="admin.html" class="text-red-400 font-bold hover:scale-105 transition">⚙️ ADMIN PANEL</a>` 
+        : '';
+
+    // ✅ FULL NAVIGATION WITH ALL LINKS
+    const navButtons = document.querySelector('nav div.hidden.md\\:flex');
+    navButtons.innerHTML = `
+        <a href="index.html" class="glow-text font-semibold hover:scale-105 transition">🏠 Home</a>
+        <a href="streams.html" class="hover:text-accent transition-colors">📺 Streams</a>
+        <a href="profile.html" class="hover:text-accent transition-colors">👤 My Profile</a>
+        ${adminLink}
+        <button onclick="logoutUser()" class="px-5 py-2 border border-red-400 text-red-400 rounded-lg hover:bg-red-500/20 transition-all">Logout</button>
+    `;
+}
 });
