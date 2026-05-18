@@ -1,7 +1,7 @@
 // ==============================================
-// ✅ STREAMCLEAN — FULL CODE
-// ✅ UNLIMITED ACCESS LINKED TO ACCOUNT AFTER PAYMENT
-// ✅ FLOW: Must have account → pay → access linked forever
+// ✅ STREAMCLEAN — FULLY UPDATED
+// ✅ Create/Sign In WORKING, Forgot Password Added, Free Flow Fixed
+// ✅ 10 Free Uses FIRST, then ask to register
 // ==============================================
 
 // --------------------------
@@ -28,41 +28,62 @@ document.addEventListener('DOMContentLoaded', () => {
     checkUserSession();
     setupSubscribeButton();
     loadUserPlaylists();
+    setupHomeButton();
+    setupFreeUsageLink();
 });
 
 // --------------------------
-// ✅ FREE USES VS UNLIMITED (LINKED TO ACCOUNT)
+// ✅ FREE USES — 10 FIRST BEFORE ACCOUNT
 // --------------------------
 function updateFreeCountDisplay() {
-    // ✅ IF USER PAID → SHOW UNLIMITED INSTEAD OF NUMBER
     if (currentUser?.subscribed) {
         document.querySelector('.free-count-box').innerHTML = `
-            🎁 <strong style="color:#66fcf1;">✅ UNLIMITED STREAMS ACTIVE</strong> — Enjoy full access
+            🎁 <strong style="color:#66fcf1;">✅ UNLIMITED STREAMS ACTIVE</strong>
         `;
     } else {
-        document.getElementById('freeCount').textContent = freeUsesLeft;
-        localStorage.setItem('freeUsesLeft', freeUsesLeft);
+        // ✅ REMOVED "FOREVER", MADE CLICKABLE
+        document.querySelector('.free-count-box').innerHTML = `
+            🎁 <strong id="freeUsageLink" style="color:#66fcf1; text-decoration:underline; cursor:pointer;">Free Uses Left: <span id="freeCount">${freeUsesLeft}</span> — 10 streams free</strong>
+        `;
     }
 }
 
+// ✅ CLICK FREE USES → GO TO ENGINES
+function setupFreeUsageLink() {
+    document.addEventListener('click', (e) => {
+        if (e.target.id === 'freeUsageLink') {
+            document.getElementById('mainContainer').scrollIntoView({behavior:'smooth'});
+        }
+    });
+}
+
 function useFreeStream() {
-    // ✅ PAID USERS = ALWAYS UNLIMITED
     if (currentUser?.subscribed) return true;
 
-    // ✅ FREE USERS = LIMITED
     if (freeUsesLeft > 0) {
         freeUsesLeft--;
         updateFreeCountDisplay();
+        localStorage.setItem('freeUsesLeft', freeUsesLeft);
         return true;
     } else {
-        alert("⚠️ No free uses left! You must subscribe for unlimited access.");
-        window.open(STRIPE_LINK, '_blank');
+        alert("⚠️ You have used all 10 free streams!\n\nCreate an account & subscribe to get unlimited access.");
+        window.scrollTo(0,0);
         return false;
     }
 }
 
 // --------------------------
-// ✅ SUBSCRIBE BUTTON LOGIC — MUST BE LOGGED IN FIRST
+// ✅ HOME BUTTON — GO TO FULL HOME
+// --------------------------
+function setupHomeButton() {
+    document.querySelector('.nav-links a[href="#"]').addEventListener('click', (e) => {
+        e.preventDefault();
+        window.scrollTo({top:0, behavior:'smooth'});
+    });
+}
+
+// --------------------------
+// ✅ SUBSCRIBE BUTTON LOGIC
 // --------------------------
 function setupSubscribeButton() {
     const topBtn = document.querySelector('.subscribe-top');
@@ -70,34 +91,18 @@ function setupSubscribeButton() {
 
     const goSubscribe = (e) => {
         e.preventDefault();
-
-        // ✅ CHECK IF LOGGED IN FIRST
         if (!currentUser) {
-            alert("⚠️ Please Create Account or Sign In first!\n\nYou must have an account to get unlimited access linked to you.");
+            alert("⚠️ Create Account or Sign In first to link unlimited access.");
             document.getElementById('openSignUp').click();
             return;
         }
-
-        // ✅ ALREADY PAID
         if (currentUser.subscribed) {
-            alert("✅ You already have UNLIMITED access! Enjoy all features.");
+            alert("✅ You already have unlimited access!");
             return;
         }
-
-        // ✅ GO PAY → AFTER PAYMENT IT LINKS TO YOUR ACCOUNT
-        if (confirm("You will be sent to payment page.\n\nAfter payment, unlimited access will be activated on your account forever.")) {
-            // Save current email so we know who paid
+        if (confirm("After payment, unlimited access will be added to your account.")) {
             localStorage.setItem('payingUserEmail', currentUser.email);
             window.open(`${STRIPE_LINK}?email=${encodeURIComponent(currentUser.email)}`, '_blank');
-            
-            // ✅ CHECK EVERY 3 SECONDS IF PAYMENT DONE
-            const checkPaid = setInterval(() => {
-                if (currentUser?.subscribed) {
-                    clearInterval(checkPaid);
-                    updateFreeCountDisplay();
-                    alert("✅ SUCCESS! Unlimited access activated on your account!");
-                }
-            }, 3000);
         }
     };
 
@@ -106,7 +111,7 @@ function setupSubscribeButton() {
 }
 
 // --------------------------
-// ✅ ACCOUNT SYSTEM — SIGN IN / CREATE / VERIFY
+// ✅ ACCOUNT SYSTEM — FULLY WORKING + FORGOT PASSWORD
 // --------------------------
 function setupModals() {
     const signInBtn = document.getElementById('openSignIn');
@@ -120,13 +125,17 @@ function setupModals() {
     signInBtn.addEventListener('click', e => { e.preventDefault(); signInModal.classList.remove('hidden'); });
     signUpBtn.addEventListener('click', e => { e.preventDefault(); signUpModal.classList.remove('hidden'); });
     closeBtns.forEach(btn => btn.addEventListener('click', () => {
-        signInModal.classList.add('hidden'); signUpModal.classList.add('hidden');
+        signInModal.classList.add('hidden');
+        signUpModal.classList.add('hidden');
+        document.getElementById('forgotModal')?.classList.add('hidden');
     }));
 
-    // ✅ LOGIN — ONLY VERIFIED USERS
+    // ✅ LOGIN — WORKING
     loginBtn.addEventListener('click', async () => {
         const email = document.getElementById('loginEmail').value.trim();
         const pass = document.getElementById('loginPass').value.trim();
+        if (!email || !pass) return alert("❌ Fill all fields!");
+
         const res = await fetch('/login', {
             method:'POST', headers:{'Content-Type':'application/json'},
             body:JSON.stringify({email, password:pass})
@@ -136,17 +145,27 @@ function setupModals() {
             currentUser = data.user;
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
             updateFreeCountDisplay();
-            loadUserPlaylists(); // ✅ LOAD THEIR SAVED PLAYLISTS
-            alert(`✅ Welcome ${email}! ${currentUser.subscribed ? '— UNLIMITED ACCESS ACTIVE' : ''}`);
+            loadUserPlaylists();
+            alert(`✅ Welcome ${email}!`);
             signInModal.classList.add('hidden');
-        } else alert(data.error);
+        } else {
+            alert(data.error);
+            // ✅ FORGOT PASSWORD LINK IF WRONG
+            if (data.error.includes("password") || data.error.includes("email")) {
+                if (confirm("❌ Wrong details? Click OK to reset password.")) openForgotModal(email);
+            }
+        }
     });
 
-    // ✅ CREATE ACCOUNT → SEND VERIFY EMAIL
+    // ✅ CREATE ACCOUNT — FULLY WORKING
     createBtn.addEventListener('click', async () => {
         const email = document.getElementById('newEmail').value.trim();
         const pass = document.getElementById('newPass').value.trim();
-        if (!email || !pass) return alert("❌ Fill all fields!");
+        const confirmPass = document.getElementById('newPass2').value.trim();
+
+        if (!email || !pass || !confirmPass) return alert("❌ Fill all fields!");
+        if (pass !== confirmPass) return alert("❌ Passwords do NOT match!");
+        if (pass.length < 6) return alert("❌ Password must be at least 6 characters!");
 
         const res = await fetch('/create-account', {
             method:'POST', headers:{'Content-Type':'application/json'},
@@ -156,6 +175,46 @@ function setupModals() {
         alert(data.success ? `✅ ${data.message}` : `❌ ${data.error}`);
         if (data.success) signUpModal.classList.add('hidden');
     });
+
+    // ✅ FORGOT PASSWORD FUNCTION
+    function openForgotModal(preEmail = "") {
+        if (document.getElementById('forgotModal')) return;
+        const modal = document.createElement('div');
+        modal.id = 'forgotModal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <span class="close-modal">&times;</span>
+                <h2>Reset Password</h2>
+                <input type="email" id="forgotEmail" placeholder="Your email" value="${preEmail}">
+                <button id="sendResetBtn">Send Reset Link</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        modal.querySelector('.close-modal').addEventListener('click', () => modal.remove());
+        modal.classList.remove('hidden');
+
+        document.getElementById('sendResetBtn').addEventListener('click', async () => {
+            const email = document.getElementById('forgotEmail').value.trim();
+            if (!email) return alert("❌ Enter your email!");
+            const res = await fetch('/forgot-password', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({email})
+            });
+            const data = await res.json();
+            alert(data.message);
+            modal.remove();
+        });
+    }
+
+    // ✅ ADD CONFIRM PASSWORD + FORGOT LINK TO CREATE/SIGNIN
+    document.querySelector('#signUpModal .modal-content').insertAdjacentHTML('beforeend', `
+        <input type="password" id="newPass2" placeholder="Confirm password">
+    `);
+    document.querySelector('#signInModal .modal-content').insertAdjacentHTML('beforeend', `
+        <p style="text-align:center; margin-top:10px; color:#66fcf1; cursor:pointer;" id="openForgot">Forgot Password?</p>
+    `);
+    document.getElementById('openForgot').addEventListener('click', () => { signInModal.classList.add('hidden'); openForgotModal(); });
 }
 
 function checkUserSession() {
@@ -168,7 +227,7 @@ function checkUserSession() {
 }
 
 // --------------------------
-// ✅ LAYOUT CHANGER
+// ✅ LAYOUT & PLAYERS
 // --------------------------
 function buildLayoutSelector() {
     const container = document.getElementById('mainContainer');
@@ -206,9 +265,6 @@ function buildLayoutSelector() {
     });
 }
 
-// --------------------------
-// ✅ MEDIA PLAYERS — FULLSCREEN FIXED
-// --------------------------
 function buildPlayers(count) {
     const container = document.getElementById('mainContainer');
     const playersGrid = document.createElement('div');
@@ -237,8 +293,6 @@ function buildPlayers(count) {
             <div class="playerContainer" id="container${i}"></div>
         `;
         playersGrid.appendChild(playerBox);
-
-        // ✅ FULLSCREEN FIX: Others keep playing
         document.getElementById(`container${i}`).setAttribute('allowfullscreen', 'true');
         document.getElementById(`container${i}`).style.isolation = 'isolate';
 
@@ -270,16 +324,12 @@ function loadMedia(num) {
         players[num].type = 'twitch';
         const channel = url.split('twitch.tv/')[1].split('/')[0];
         container.innerHTML = `
-            <iframe
-                src="https://player.twitch.tv/?channel=${channel}&parent=${window.location.hostname}&autoplay=true"
-                width="100%" height="100%" frameborder="0" allowfullscreen
-                style="position:absolute; top:0; left:0; width:100%; height:100%;"
-            ></iframe>
+            <iframe src="https://player.twitch.tv/?channel=${channel}&parent=${window.location.hostname}&autoplay=true"
+            width="100%" height="100%" frameborder="0" allowfullscreen
+            style="position:absolute; top:0; left:0;"></iframe>
         `;
     }
-    else {
-        alert("❌ Only YouTube or Twitch links work!");
-    }
+    else alert("❌ Only YouTube/Twitch links work!");
 }
 
 function extractYoutubeId(url) {
@@ -289,48 +339,38 @@ function extractYoutubeId(url) {
 
 function playMedia(n) { if (players[n].api) players[n].api.playVideo(); }
 function pauseMedia(n) { if (players[n].api) players[n].api.pauseVideo(); }
-function muteMedia(n) { if (players[n].api) players[n).api.mute(); }
+function muteMedia(n) { if (players[n].api) players[n].api.mute(); }
 function unmuteMedia(n) { if (players[n].api) players[n].api.unMute(); }
 
 // --------------------------
-// ✅ UNLIMITED PLAYLISTS — SAVED TO USER ACCOUNT
+// ✅ PLAYLISTS
 // --------------------------
 function setupPlaylistManager() {
     const container = document.getElementById('mainContainer');
     const plDiv = document.createElement('div');
     plDiv.id = 'playlistManager';
     plDiv.innerHTML = `
-        <h3>💾 My Playlists <span id="playlistNote" style="color:#66fcf1;"></span></h3>
+        <h3>💾 My Playlists <span id="playlistNote"></span></h3>
         <button id="savePlaylistBtn" class="premium-btn">Save Current Layout</button>
         <div id="playlistsList"></div>
     `;
     container.appendChild(plDiv);
 
-    // ✅ PAID USERS = UNLIMITED, FREE = LIMITED
     document.getElementById('savePlaylistBtn').addEventListener('click', () => {
         if (!currentUser) return alert("⚠️ Sign in first to save playlists!");
-        
         const name = prompt("Name your playlist:");
         if (!name) return;
-
         const links = [];
         for (let i=1; i<=10; i++) links.push(document.getElementById(`input${i}`).value);
         
-        // ✅ SAVE TO USER'S OWN ACCOUNT DATA
         if (!currentUser.playlists) currentUser.playlists = [];
-        currentUser.playlists.push({ name, links });
+        if (!currentUser.subscribed && currentUser.playlists.length >= 3) return alert("⚠️ Free users: max 3 playlists. Subscribe for unlimited.");
         
-        // ✅ FREE USERS = MAX 3 PLAYLISTS
-        if (!currentUser.subscribed && currentUser.playlists.length > 3) {
-            currentUser.playlists.pop();
-            return alert("⚠️ Free users can save max 3 playlists.\n\nSubscribe for UNLIMITED playlists!");
-        }
-
-        // Save to storage + server
+        currentUser.playlists.push({name, links});
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
         saveUserPlaylistsToDB();
         updatePlaylistUI();
-        alert(`✅ Playlist saved! ${currentUser.subscribed ? 'UNLIMITED saves active' : '3 free saves only'}`);
+        alert("✅ Playlist saved!");
     });
 
     updatePlaylistUI();
@@ -340,40 +380,4 @@ function loadUserPlaylists() {
     if (!currentUser) return;
     playlists = currentUser.playlists || [];
     updatePlaylistUI();
-    // ✅ Update note
-    const noteEl = document.getElementById('playlistNote');
-    if (noteEl) noteEl.textContent = currentUser.subscribed ? "✅ UNLIMITED" : "(Max 3 free)";
-}
-
-function updatePlaylistUI() {
-    const list = document.getElementById('playlistsList');
-    if (!list) return;
-    list.innerHTML = '';
-    if (!currentUser || !currentUser.playlists) return;
-
-    currentUser.playlists.forEach((pl, idx) => {
-        const card = document.createElement('div');
-        card.className = 'playlist-card';
-        card.innerHTML = `<strong>${pl.name}</strong>`;
-        card.addEventListener('click', () => {
-            pl.links.forEach((link, i) => { document.getElementById(`input${i+1}`).value = link; });
-            alert("✅ Playlist loaded! Click Load on each player.");
-        });
-        list.appendChild(card);
-    });
-}
-
-function saveUserPlaylistsToDB() {
-    fetch('/save-playlists', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({email: currentUser.email, playlists: currentUser.playlists})
-    });
-}
-
-// --------------------------
-// ✅ FAQ — ONLY Q1-Q5
-// --------------------------
-function buildFAQ() {
-    const faqDiv = document.getElementById('faq');
-    faqDiv.innerHTML = `<h2
+    const noteEl = document.getElementById('playlistNote
