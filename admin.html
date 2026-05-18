@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel | StreamClean</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0b0c10',
+                        secondary: '#1f2833',
+                        glass: 'rgba(31, 40, 51, 0.4)',
+                        glassBorder: 'rgba(102, 252, 241, 0.2)',
+                        textLight: '#f8f9fa',
+                        accent: '#66fcf1',
+                        accentDark: '#45a29e',
+                        glow: '#66fcf1',
+                    },
+                    fontFamily: { sans: ['Segoe UI', 'Roboto', 'sans-serif'] },
+                    boxShadow: { glass: '0 8px 32px rgba(0,0,0,0.3)', glow: '0 0 15px rgba(102,252,241,0.5)' }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .glass-card { @apply bg-glass backdrop-blur-xl border border-glassBorder rounded-2xl shadow-glass; }
+            .glow-text { @apply text-accent drop-shadow-[0_0_8px_rgba(102,252,241,0.7)]; }
+            .glow-btn { @apply bg-accent text-primary rounded-lg hover:bg-accentDark hover:shadow-glow transition-all duration-300; }
+            .admin-btn { @apply px-3 py-1 rounded text-sm font-semibold transition; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-primary via-secondary to-primary min-h-screen text-textLight font-sans">
+
+    <nav class="fixed w-full top-0 z-50 glass-card px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3"><h1 class="glow-text text-2xl font-bold">StreamClean | ADMIN</h1></div>
+        <div class="flex items-center gap-4">
+            <a href="index.html" class="glow-text hover:scale-105 transition">🏠 Home</a>
+            <button onclick="logoutUser()" class="px-4 py-2 border border-red-400 text-red-400 rounded-lg hover:bg-red-500/20">Logout</button>
+        </div>
+    </nav>
+
+    <main class="pt-28 px-4 md:px-8 pb-20 max-w-5xl mx-auto">
+        <div class="glass-card p-8 md:p-12 shadow-glow border-2 border-accent/40">
+            <h2 class="text-4xl font-bold glow-text mb-8 text-center">🛠️ Admin Control Panel</h2>
+
+            <!-- Stats -->
+            <div class="grid md:grid-cols-3 gap-6 mb-10">
+                <div class="glass-card p-4 text-center">
+                    <h4 class="text-xl glow-text" id="totalUsers">0</h4>
+                    <p class="text-gray-300">Total Users</p>
+                </div>
+                <div class="glass-card p-4 text-center">
+                    <h4 class="text-xl text-green-400" id="subUsers">0</h4>
+                    <p class="text-gray-300">Subscribed Users</p>
+                </div>
+                <div class="glass-card p-4 text-center">
+                    <h4 class="text-xl text-yellow-400" id="freeUsers">0</h4>
+                    <p class="text-gray-300">Free Users</p>
+                </div>
+            </div>
+
+            <!-- All Users Table -->
+            <h3 class="text-2xl font-semibold mb-4">👥 All Registered Users</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full glass-card">
+                    <thead>
+                        <tr class="border-b border-glassBorder">
+                            <th class="p-3 text-left">Name</th>
+                            <th class="p-3 text-left">Email</th>
+                            <th class="p-3 text-left">Status</th>
+                            <th class="p-3 text-left">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTable">
+                        <!-- Users load here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="auth.js"></script>
+    <script>
+        // === AUTO CREATE YOUR ADMIN ACCOUNT — UNLIMITED ACCESS ===
+        document.addEventListener('DOMContentLoaded', () => {
+            const adminEmail = "magicalfinger749@gmail.com";
+            const adminPass = "Kinghashim2";
+
+            // Create admin if not exists
+            let allUsers = JSON.parse(localStorage.getItem('streamclean_users')) || [];
+            if (!allUsers.some(u => u.email === adminEmail)) {
+                const adminAccount = {
+                    name: "Admin",
+                    email: adminEmail,
+                    password: adminPass,
+                    subscribed: true,
+                    isAdmin: true,
+                    joinDate: new Date().toLocaleDateString()
+                };
+                allUsers.push(adminAccount);
+                localStorage.setItem('streamclean_users', JSON.stringify(allUsers));
+            }
+
+            // Only admins allowed here
+            const currentUser = JSON.parse(localStorage.getItem('streamclean_currentUser'));
+            if (!currentUser || !currentUser.isAdmin) {
+                alert("❌ Access denied — Admin only!");
+                return window.location.href = 'index.html';
+            }
+
+            // Load stats
+            const subscribed = allUsers.filter(u => u.subscribed).length;
+            document.getElementById('totalUsers').textContent = allUsers.length;
+            document.getElementById('subUsers').textContent = subscribed;
+            document.getElementById('freeUsers').textContent = allUsers.length - subscribed;
+
+            // Load users table
+            const table = document.getElementById('usersTable');
+            allUsers.forEach(user => {
+                const row = document.createElement('tr');
+                row.className = "border-b border-glassBorder/50";
+                row.innerHTML = `
+                    <td class="p-3">${user.name}</td>
+                    <td class="p-3">${user.email}</td>
+                    <td class="p-3">
+                        ${user.subscribed ? '<span class="text-green-400">✅ Unlimited</span>' : '<span class="text-yellow-400">❌ Free</span>'}
+                        ${user.isAdmin ? '<span class="glow-text ml-2">(ADMIN)</span>' : ''}
+                    </td>
+                    <td class="p-3">
+                        ${!user.isAdmin ? `
+                            <button class="admin-btn bg-green-500/20 text-green-400 hover:bg-green-500/40" onclick="giveAccess('${user.email}')">Give Access</button>
+                            <button class="admin-btn bg-red-500/20 text-red-400 hover:bg-red-500/40 ml-1" onclick="removeAccess('${user.email}')">Remove</button>
+                        ` : '<span class="text-gray-500">—</span>'}
+                    </td>
+                `;
+                table.appendChild(row);
+            });
+        });
+
+        // === ADMIN FUNCTIONS ===
+        function giveAccess(email) {
+            updateSubscription(email);
+            location.reload();
+        }
+        function removeAccess(email) {
+            const allUsers = JSON.parse(localStorage.getItem('streamclean_users')).map(u => {
+                if (u.email === email) u.subscribed = false;
+                return u;
+            });
+            localStorage.setItem('streamclean_users', JSON.stringify(allUsers));
+            location.reload();
+        }
+    </script>
+</body>
+</html>
