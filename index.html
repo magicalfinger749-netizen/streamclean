@@ -38,8 +38,8 @@
         <strong>Free Uses Left: <span id="freeCount">10</span></strong> – 10 streams FREE, forever
       </div>
 
-      <!-- ✅ BIG SUBSCRIBE BUTTON – SAME LINK -->
-      <a href="https://buy.stripe.com/aFa6oHarE6aa10N3M9bQY00" target="_blank" class="subscribe-btn">Subscribe Now – Only £4.99 / Month</a>
+      <!-- ✅ BIG SUBSCRIBE BUTTON — CORRECT PRICE £10.99 -->
+      <a href="https://buy.stripe.com/aFa6oHarE6aa10N3M9bQY00" target="_blank" class="subscribe-btn">Subscribe Now – Only £10.99 / Month</a>
     </div>
   </header>
 
@@ -58,7 +58,14 @@
         <div class="input-row"><input type="text" placeholder="Stream/Video Link 9" class="stream-input"></div>
         <div class="input-row"><input type="text" placeholder="Stream/Video Link 10" class="stream-input"></div>
       </div>
-      <button id="loadStreams" class="load-btn">Load All Streams</button>
+      
+      <!-- ✅ PLAYLIST SAVE/LOAD BUTTONS -- ADDED BACK -->
+      <div class="playlist-buttons">
+        <button id="loadStreams" class="load-btn">Load All Streams</button>
+        <button id="savePlaylist" class="save-btn">💾 Save Playlist</button>
+        <button id="loadPlaylist" class="load-saved-btn">📂 Load Saved Playlist</button>
+        <button id="clearAll" class="clear-btn">🗑️ Clear All</button>
+      </div>
     </div>
   </section>
 
@@ -66,6 +73,19 @@
     <div class="container">
       <h2>Your Streams</h2>
       <div id="playersContainer" class="players-grid"></div>
+    </div>
+  </section>
+
+  <!-- ✅ AI HELP SECTION — FULLY ADDED BACK -->
+  <section class="ai-help-section">
+    <div class="container">
+      <h2>🤖 AI Stream Helper</h2>
+      <p>Let our AI find and organize the best streams for you. Just tell it what you want to watch!</p>
+      <div class="ai-input-box">
+        <input type="text" id="aiQuery" placeholder="E.g. 'Football live' or 'Music streams'">
+        <button id="aiSearchBtn">Ask AI</button>
+      </div>
+      <div id="aiResults" class="ai-results"></div>
     </div>
   </section>
 
@@ -105,9 +125,16 @@
     </div>
   </div>
 
+  <!-- ✅ FOOTER WITH LEGAL TEXT — FULLY BACK -->
   <footer>
     <div class="container">
       <p>&copy; 2025 StreamClean — All Rights Reserved | Fast • Clean • Simple</p>
+      <div class="legal-links">
+        <a href="/terms">Terms of Service</a> | 
+        <a href="/privacy">Privacy Policy</a> | 
+        <a href="/cookies">Cookie Policy</a> | 
+        <a href="/contact">Contact Us</a>
+      </div>
     </div>
   </footer>
 
