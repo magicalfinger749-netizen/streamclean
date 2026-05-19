@@ -1,5 +1,5 @@
 // ==================================================
-// ✅ STREAMCLEAN – FULL BACKEND — FINAL WORKING VERSION
+// ✅ STREAMCLEAN – CLEAN START – SERVER.JS
 // ==================================================
 
 const express = require('express');
@@ -17,12 +17,11 @@ const YOUR_WEBSITE_URL = "https://streamclean.live";
 const STRIPE_LINK = "https://buy.stripe.com/aFa6oHarE6aa10N3M9bQY00";
 
 // --------------------------
-// ✅ MIDDLEWARE — PERFECT SETUP
+// ✅ MIDDLEWARE — PERFECT PATH (NO MISTAKES)
 // --------------------------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-// ✅ THIS IS THE ONLY PATH SETTING YOU NEED — NO CONFLICTS
-app.use(express.static(__dirname));
+app.use(express.static('./')); // ✅ LOADS ALL FILES CORRECTLY
 
 // --------------------------
 // ✅ DATABASE
@@ -45,7 +44,7 @@ function saveDB(data) {
 }
 
 // ==================================================
-// ✅ EMAIL SYSTEM - BREVO
+// ✅ ROUTES & FUNCTIONS
 // ==================================================
 
 // --------------------------
@@ -85,7 +84,7 @@ app.post('/create-account', async (req, res) => {
                 subject: "✅ Verify your StreamClean account",
                 htmlContent: `
                     <h2>Welcome to StreamClean!</h2>
-                    <p>Click below to verify:</p>
+                    <p>Click below to verify your email:</p>
                     <a href="${verifyLink}" style="background:#66fcf1; color:black; padding:14px 28px; text-decoration:none; border-radius:6px; font-weight:bold;">✅ VERIFY MY EMAIL</a>
                 `
             })
@@ -229,7 +228,7 @@ app.get('/account', (req, res) => {
         <html>
         <head>
             <title>StreamClean - Account Details</title>
-            <link rel="stylesheet" href="./style.css">
+            <link rel="stylesheet" href="style.css">
             <style>
                 body { font-family: Arial; background: #0b0c10; color: #c5c6c7; padding: 30px; }
                 .container { max-width: 600px; margin: auto; background: #1f2833; padding: 30px; border-radius: 12px; }
