@@ -113,7 +113,7 @@ session_start();
     <div class="pricing">
         <div class="price-card free">
             <h3>Free Plan</h3>
-            <div class="price">$0<span>/month</span></div>
+            <div class="price">£0<span>/month</span></div>
             <ul class="features-list">
                 <li>Up to 200,000 images</li>
                 <li>Images only (no video)</li>
@@ -126,7 +126,7 @@ session_start();
 
         <div class="price-card premium">
             <h3>Premium</h3>
-            <div class="price">$9.99<span>/month</span></div>
+            <div class="price">£10.99<span>/month</span></div>
             <ul class="features-list">
                 <li>Unlimited storage</li>
                 <li>Images + Videos supported</li>
