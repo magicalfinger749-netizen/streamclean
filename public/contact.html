@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Helper | StreamClean.live</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; font-family:'Arial'; }
+        body { background:#0a0a1f; color:#fff; background-image:linear-gradient(135deg, #0a0a1f 0%, #1a1a40 100%); min-height:100vh; padding:30px; }
+        .container { max-width:800px; margin:0 auto; }
+        .neon-text { color:#00ffff; text-shadow:0 0 5px #00ffff; }
+        .gold-text { color:#ffdd00; text-shadow:0 0 5px #ffdd00; }
+
+        /* AI Chat Box */
+        .ai-box { background:#1a1a4080; border:2px solid #00ffff40; border-radius:12px; padding:25px; box-shadow:0 0 15px #00ffff20; margin-bottom:25px; }
+        .ai-reply { background:#0a0a1f; border:1px solid #00ffff60; border-radius:8px; padding:18px; margin:15px 0; min-height:60px; font-size:16px; line-height:1.5; }
+        .question-btn { display:block; width:100%; background:transparent; color:#00ffff; border:2px solid #00ffff; padding:12px; margin:10px 0; border-radius:6px; cursor:pointer; transition:0.3s; font-size:15px; text-align:left; }
+        .question-btn:hover { background:#00ffff; color:#0a0a1f; box-shadow:0 0 10px #00ffff; }
+
+        /* Subscribe Warning Box */
+        .subscribe-card { background:#1a1a4080; border:2px solid #ffdd0040; border-radius:12px; padding:25px; text-align:center; }
+        .warning-text { color:#ff6666; font-size:14px; margin:15px 0; padding:10px; border:1px solid #ff666640; border-radius:6px; }
+        .checkbox-area { margin:15px 0; color:#ffdd00; }
+        .neon-button { background:transparent; color:#ffdd00; border:2px solid #ffdd00; padding:12px 30px; border-radius:6px; text-decoration:none; display:inline-block; transition:0.3s; font-size:18px; font-weight:bold; cursor:pointer; }
+        .neon-button:hover { background:#ffdd00; color:#0a0a1f; box-shadow:0 0 15px #ffdd00; }
+        .neon-button:disabled { opacity:0.4; cursor:not-allowed; border-color:#888; color:#888; }
+
+        .back-link { text-align:center; margin-top:30px; }
+        .back-link a { color:#00ffff80; text-decoration:none; }
+        .back-link a:hover { color:#00ffff; text-decoration:underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="neon-text" style="text-align:center; font-size:36px; margin-bottom:20px;">🤖 STREAMCLEAN AI HELPER</h1>
+        <p style="text-align:center; opacity:0.8; margin-bottom:30px;">Click a question below and I will answer instantly</p>
+
+        <!-- ✅ AI CHAT AREA -->
+        <div class="ai-box">
+            <h3 class="neon-text">💬 AI REPLY:</h3>
+            <div class="ai-reply" id="aiReply">👋 Hi! Click any question below to get an answer.</div>
+
+            <h3 class="neon-text" style="margin-top:25px;">❓ FREQUENT QUESTIONS:</h3>
+
+            <!-- QUESTION 1 -->
+            <button class="question-btn" onclick="showAnswer(1)">What is this website?</button>
+            <!-- QUESTION 2 -->
+            <button class="question-btn" onclick="showAnswer(2)">How much does the subscription cost?</button>
+            <!-- QUESTION 3 -->
+            <button class="question-btn" onclick="showAnswer(3)">Are there refunds or can I cancel subscription?</button>
+            <!-- QUESTION 4 -->
+            <button class="question-btn" onclick="showAnswer(4)">How does this work?</button>
+        </div>
+
+        <!-- ✅ SUBSCRIBE BOX WITH WARNING & CHECKBOX -->
+        <div class="subscribe-card">
+            <h2 class="gold-text">✨ UPGRADE TO PREMIUM</h2>
+
+            <div class="warning-text">
+                ⚠️ <strong>NO REFUNDS POLICY:</strong> We do not offer refunds. You may cancel anytime, and you will keep Premium access until your current subscription period ends.
+            </div>
+
+            <div class="checkbox-area">
+                <label>
+                    <input type="checkbox" id="agreeBox" onchange="toggleButton()">
+                    I have read and agree — No refunds, can cancel anytime
+                </label>
+            </div>
+
+            <a id="subscribeBtn" class="neon-button" href="https://buy.stripe.com/aFa6oHarE6aa10N3M9bQY00" disabled>
+                GO TO SUBSCRIBE (£10.99/mo)
+            </a>
+        </div>
+
+        <div class="back-link">
+            <a href="index.html">← Back to Home</a>
+        </div>
+    </div>
+
+    <script>
+        // ✅ EXACT ANSWERS YOU WANTED
+        function showAnswer(num) {
+            let replyBox = document.getElementById('aiReply');
+            let text = '';
+
+            if(num === 1) {
+                text = "📌 This website stores and saves all your photos safely forever. Free users get 200,000 photos space. Premium gives you unlimited storage for photos AND videos.";
+            }
+            else if(num === 2) {
+                text = "💰 The Premium subscription costs just <strong>£10.99 per month</strong>.";
+            }
+            else if(num === 3) {
+                text = "ℹ️ We have <strong>NO REFUNDS</strong> available. However, you can cancel your subscription at any time, and you will keep all Premium features until the end of your current paid period.";
+            }
+            else if(num === 4) {
+                text = "📖 How to use: <br>1. Create your free account<br>2. Upload photos from your device, camera, or paste a link<br>3. Organise or edit them anytime<br>4. Upgrade to Premium if you want unlimited space, videos, and no ads. Everything saves automatically and stays safe forever.";
+            }
+
+            replyBox.innerHTML = text;
+        }
+
+        // ✅ ONLY ENABLE BUTTON IF CHECKBOX IS TICKED
+        function toggleButton() {
+            let btn = document.getElementById('subscribeBtn');
+            let box = document.getElementById('agreeBox');
+            btn.disabled = !box.checked;
+        }
+    </script>
+</body>
+</html>

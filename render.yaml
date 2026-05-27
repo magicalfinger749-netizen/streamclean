@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: streamclean
+    env: php
+    plan: free
+    buildCommand: ""
+    startCommand: "php -S 0.0.0.0:10000 -t public"
+    envVars:
+      - key: DB_HOST
+        fromDatabase:
+          name: streamclean-db
+          property: host
+      - key: DB_NAME
+        fromDatabase:
+          name: streamclean-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: streamclean-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: streamclean-db
+          property: password
+
+databases:
+  - name: streamclean-db
+    plan: free
