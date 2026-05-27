@@ -1,17 +1,17 @@
 <?php
-// ✅ RENDER VERSION – DO NOT CHANGE
 $host = getenv('DB_HOST');
 $dbname = getenv('DB_NAME');
-$username = getenv('DB_USER');
-$password = getenv('DB_PASSWORD');
+$user = getenv('DB_USER');
+$pass = getenv('DB_PASSWORD');
 
-// ✅ POSTGRESQL CONNECTION
-$db = pg_connect("host=$host dbname=$dbname user=$username password=$password");
-if (!$db) {
-    die("Database connection failed: " . pg_last_error());
+try {
+    $db = new PDO("pgsql:host=$host;dbname=$dbname", $user, $pass);
+    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    die("Database error: " . $e->getMessage());
 }
 
-// ✅ YOUR SETTINGS – LEAVE EXACTLY AS IS
+// ✅ YOUR SETTINGS — DO NOT CHANGE
 $OWNER_EMAIL = "magicalfinger749@gmail.com";
 $OWNER_PASS = "Kinghashim2";
 $OWNER_HIDDEN = true;
