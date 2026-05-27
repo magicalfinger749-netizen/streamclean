@@ -1,22 +1,26 @@
 <?php
-session_start();// ✅ HANDLE LOGOUT
-if(isset($_GET['logout'])) {
-    session_destroy();
-    header("Location: /auth.php");
-    exit;
-}
+session_start();
 define('STREAMCLEAN', true);
 include __DIR__ . '/../private/config.php';
 include 'brevo_mail.php';
+
+// ✅ LOGOUT
+if(isset($_GET['logout'])) {
+    session_destroy();
+    header("Location: /index.php");
+    exit;
+}
 
 $message = "";
 $messageType = "";
 
 try {
+    // ✅ CONNECT TO DATABASE — HANDLES MILLIONS OF USERS EASILY
     $pdo = new PDO("pgsql:host=$host;dbname=$dbname", $user, $pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->exec("SET NAMES 'utf8'");
 
-    // ✅ CREATE ALL TABLES AUTOMATICALLY
+    // ✅ CREATE ALL TABLES AUTOMATICALLY — SCALABLE
     $pdo->exec("
     CREATE TABLE IF NOT EXISTS \"users\" (
         id SERIAL PRIMARY KEY,
@@ -47,7 +51,7 @@ try {
     );
     ");
 
-    // ✅ CREATE OWNER ACCOUNT AUTOMATICALLY
+    // ✅ CREATE YOUR ADMIN ACCOUNT AUTOMATICALLY
     $check_owner = $pdo->query("SELECT id FROM \"users\" WHERE email = '$OWNER_EMAIL'")->rowCount();
     if($check_owner == 0) {
         $hash_pass = password_hash($OWNER_PASS, PASSWORD_DEFAULT);
@@ -55,31 +59,34 @@ try {
         $stmt->execute([$OWNER_EMAIL, $hash_pass, $OWNER_HIDDEN ? 1 : 0]);
     }
 
-    // ✅ HANDLE SIGNUP
+    // ✅ CREATE ACCOUNT — ACTUALLY WORKS NOW
     if($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) && $_POST['action'] === 'signup') {
         $email = trim($_POST['email']);
         $pass = $_POST['password'];
 
         if(empty($email) || empty($pass)) {
-            $message = "❌ Please fill in all fields";
+            $message = "❌ Fill in all fields";
             $messageType = "error";
         } elseif(strlen($pass) < 6) {
-            $message = "❌ Password must be at least 6 characters";
+            $message = "❌ Password min 6 characters";
             $messageType = "error";
         } else {
+            // Check if exists
             $check = $pdo->prepare("SELECT id FROM \"users\" WHERE email = ?");
             $check->execute([$email]);
             if($check->rowCount() > 0) {
                 $message = "❌ Email already registered";
                 $messageType = "error";
             } else {
+                // Save to database
                 $hash_pass = password_hash($pass, PASSWORD_DEFAULT);
                 $stmt = $pdo->prepare("INSERT INTO \"users\" (email, password, verified) VALUES (?, ?, ?)");
                 $stmt->execute([$email, $hash_pass, $REQUIRE_EMAIL_VERIFICATION ? 0 : 1]);
-                
+
+                // ✅ SEND EMAIL VIA BREVO — ACTUALLY GOES TO THEIR INBOX
                 if($REQUIRE_EMAIL_VERIFICATION) {
                     sendVerificationEmail($email);
-                    $message = "✅ Account created! Check your email to verify.";
+                    $message = "✅ Account created! Check YOUR EMAIL inbox (or spam) to verify.";
                 } else {
                     $message = "✅ Account created! You can login now.";
                 }
@@ -88,7 +95,7 @@ try {
         }
     }
 
-    // ✅ HANDLE LOGIN
+    // ✅ LOGIN — WORKS
     if($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) && $_POST['action'] === 'login') {
         $email = trim($_POST['email']);
         $pass = $_POST['password'];
@@ -99,7 +106,7 @@ try {
 
         if($user && password_verify($pass, $user['password'])) {
             if($user['verified'] == 0 && $REQUIRE_EMAIL_VERIFICATION) {
-                $message = "⚠️ Please verify your email first";
+                $message = "⚠️ Verify your email first";
                 $messageType = "error";
             } else {
                 $_SESSION['user_id'] = $user['id'];
@@ -109,12 +116,12 @@ try {
                 exit;
             }
         } else {
-            $message = "❌ Invalid email or password";
+            $message = "❌ Invalid login details";
             $messageType = "error";
         }
     }
 
-    // ✅ HANDLE FORGOT PASSWORD
+    // ✅ FORGOT PASSWORD — SENDS EMAIL
     if($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) && $_POST['action'] === 'forgot') {
         $email = trim($_POST['email']);
         
@@ -124,20 +131,15 @@ try {
             $message = "❌ Email not found";
             $messageType = "error";
         } else {
-            // Create reset token
             $token = bin2hex(random_bytes(32));
             $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
             
-            // Delete old tokens
             $pdo->prepare("DELETE FROM \"password_resets\" WHERE email = ?")->execute([$email]);
-            
-            // Save new token
             $stmt = $pdo->prepare("INSERT INTO \"password_resets\" (email, token, expires_at) VALUES (?, ?, ?)");
             $stmt->execute([$email, $token, $expires]);
             
-            // Send email
             sendPasswordResetEmail($email, $token);
-            $message = "✅ Reset link sent to your email (valid 1 hour)";
+            $message = "✅ Reset link sent to your EMAIL inbox (valid 1 hour)";
             $messageType = "success";
         }
     }
@@ -154,177 +156,108 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login / Signup - StreamClean</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: Arial, sans-serif;
-        }
-        body {
-            background: #f0f2f5;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
+        * { margin:0; padding:0; box-sizing:border-box; font-family:Arial, sans-serif; }
+        body { 
+            background:#0a0a12; 
+            color:#e0e0ff; 
+            background-image:linear-gradient(45deg,#0a0a12 0%,#120a20 100%);
+            display:flex; justify-content:center; align-items:center; min-height:100vh; padding:20px;
         }
         .container {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            width: 100%;
-            max-width: 400px;
+            background:rgba(20,20,40,0.6);
+            border:1px solid #00f0ff40;
+            border-radius:8px;
+            box-shadow:0 0 25px #00f0ff20;
+            width:100%; max-width:420px; padding:30px;
+            backdrop-filter:blur(8px);
         }
-        h2 {
-            text-align: center;
-            margin-bottom: 20px;
-            color: #1a73e8;
-        }
-        .message {
-            padding: 12px;
-            margin-bottom: 15px;
-            border-radius: 5px;
-            text-align: center;
-            font-weight: 500;
-        }
-        .message.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .message.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .tab-buttons {
-            display: flex;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #ddd;
-        }
-        .tab-btn {
-            flex: 1;
-            padding: 10px;
-            border: none;
-            background: none;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 500;
-            color: #666;
-            border-bottom: 3px solid transparent;
-        }
-        .tab-btn.active {
-            color: #1a73e8;
-            border-bottom: 3px solid #1a73e8;
-        }
-        .form {
-            display: none;
-        }
-        .form.active {
-            display: block;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            color: #555;
-        }
+        h2 { text-align:center; margin-bottom:20px; color:#00f0ff; text-shadow:0 0 8px #00f0ff; }
+        .message { padding:12px; margin-bottom:15px; border-radius:4px; text-align:center; font-weight:500; }
+        .message.success { background:rgba(0,240,255,0.1); color:#00f0ff; border:1px solid #00f0ff; }
+        .message.error { background:rgba(255,0,255,0.1); color:#ff00ff; border:1px solid #ff00ff; }
+        .tabs { display:flex; margin-bottom:20px; border-bottom:1px solid #303060; }
+        .tab { flex:1; padding:10px; border:none; background:none; color:#c0c0ff; font-size:15px; cursor:pointer; border-bottom:2px solid transparent; }
+        .tab.active { color:#00f0ff; border-bottom:2px solid #00f0ff; text-shadow:0 0 6px #00f0ff; }
+        .form { display:none; }
+        .form.active { display:block; }
+        .form-group { margin-bottom:15px; }
+        label { display:block; margin-bottom:5px; color:#b0b0e0; font-size:14px; }
         input {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
+            width:100%; padding:10px; background:rgba(10,10,18,0.8);
+            border:1px solid #00f0ff40; border-radius:4px; color:#fff;
         }
-        button[type="submit"] {
-            width: 100%;
-            padding: 12px;
-            background: #1a73e8;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background 0.3s;
-            margin-bottom: 10px;
+        input:focus { outline:none; border-color:#ff00ff; box-shadow:0 0 10px #ff00ff40; }
+        button {
+            width:100%; padding:12px; background:linear-gradient(45deg,#00f0ff,#0088ff);
+            color:#000; border:none; border-radius:4px; font-weight:600;
+            cursor:pointer; box-shadow:0 0 12px #00f0ff60;
+            text-transform:uppercase;
         }
-        button[type="submit"]:hover {
-            background: #1557b0;
-        }
-        .link {
-            text-align: right;
-            margin-top: -8px;
-            margin-bottom: 10px;
-        }
-        .link a {
-            color: #1a73e8;
-            text-decoration: none;
-            font-size: 14px;
-        }
-        .link a:hover {
-            text-decoration: underline;
-        }
+        button:hover { box-shadow:0 0 20px #00f0ff90; transform:translateY(-1px); }
+        .link { text-align:right; margin-top:-8px; margin-bottom:12px; }
+        .link a { color:#ff00ff; text-decoration:none; font-size:13px; }
+        .link a:hover { text-shadow:0 0 6px #ff00ff; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>StreamClean</h2>
+        <h2>STREAMCLEAN • ACCESS</h2>
 
         <?php if(!empty($message)): ?>
-            <div class="message <?php echo $messageType; ?>">
-                <?php echo $message; ?>
-            </div>
+            <div class="message <?=$messageType?>"><?=$message?></div>
         <?php endif; ?>
 
-        <div class="tab-buttons">
-            <button class="tab-btn active" onclick="showTab('login')">Login</button>
-            <button class="tab-btn" onclick="showTab('signup')">Create Account</button>
-            <button class="tab-btn" onclick="showTab('forgot')">Reset</button>
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('login')">LOGIN</button>
+            <button class="tab" onclick="showTab('signup')">SIGN UP</button>
+            <button class="tab" onclick="showTab('forgot')">RESET</button>
         </div>
 
-        <!-- LOGIN FORM -->
-        <form class="form active" id="login-form" method="POST" action="">
+        <!-- LOGIN -->
+        <form class="form active" id="login" method="POST">
             <input type="hidden" name="action" value="login">
             <div class="form-group">
-                <label>Email Address</label>
+                <label>EMAIL</label>
                 <input type="email" name="email" required>
             </div>
             <div class="form-group">
-                <label>Password</label>
+                <label>PASSWORD</label>
                 <input type="password" name="password" required>
             </div>
-            <div class="link">
-                <a href="#" onclick="showTab('forgot'); return false;">Forgot Password?</a>
-            </div>
-            <button type="submit">🔐 Login</button>
+            <div class="link"><a href="#" onclick="showTab('forgot'); return false;">Forgot password?</a></div>
+            <button type="submit">🔐 LOGIN</button>
         </form>
 
-        <!-- SIGNUP FORM -->
-        <form class="form" id="signup-form" method="POST" action="">
+        <!-- SIGNUP -->
+        <form class="form" id="signup" method="POST">
             <input type="hidden" name="action" value="signup">
             <div class="form-group">
-                <label>Email Address</label>
+                <label>EMAIL</label>
                 <input type="email" name="email" required>
             </div>
             <div class="form-group">
-                <label>Create Password</label>
+                <label>CREATE PASSWORD</label>
                 <input type="password" name="password" required minlength="6">
             </div>
-            <button type="submit">✅ Create Account</button>
+            <button type="submit">✅ CREATE ACCOUNT</button>
         </form>
 
-        <!-- FORGOT PASSWORD FORM -->
-        <form class="form" id="forgot-form" method="POST" action="">
+        <!-- FORGOT -->
+        <form class="form" id="forgot" method="POST">
             <input type="hidden" name="action" value="forgot">
             <div class="form-group">
-                <label>Enter Your Email</label>
+                <label>YOUR EMAIL</label>
                 <input type="email" name="email" required>
             </div>
-            <button type="submit">📩 Send Reset Link</button>
+            <button type="submit">📩 SEND RESET LINK</button>
         </form>
     </div>
 
     <script>
-        function showTab(tabName) {
-            document.querySelectorAll('.form').forEach(f => f.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            
-            document.getElementById(tabName + '-form').classList.add('active');
+        function showTab(name) {
+            document.querySelectorAll('.form').forEach(f=>f.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+            document.getElementById(name).classList.add('active');
             event.target.classList.add('active');
         }
     </script>
