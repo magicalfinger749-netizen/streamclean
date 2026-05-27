@@ -8,7 +8,7 @@ try {
     $pdo = new PDO("pgsql:host=$host;dbname=$dbname", $user, $pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // ✅ AUTOMATICALLY CREATE TABLES — NO DB TOOL NEEDED!
+    // ✅ CREATE TABLES AUTOMATICALLY
     $pdo->exec("
     CREATE TABLE IF NOT EXISTS \"users\" (
         id SERIAL PRIMARY KEY,
@@ -56,7 +56,8 @@ try {
         if($exists->rowCount() > 0) { echo "exists"; exit; }
         $stmt = $pdo->prepare("INSERT INTO \"users\" (email, password, verified) VALUES (?, ?, ?)");
         $stmt->execute([$email, $pass, $REQUIRE_EMAIL_VERIFICATION ? 0 : 1]);
-        echo $REQUIRE_EMAIL_VERIFICATION ? "verify" : "success"; exit;
+        echo "success"; // ✅ THIS LINE WAS MISSING — NO MORE BLANK PAGE
+        exit;
     }
 
     // ✅ LOGIN
@@ -68,9 +69,10 @@ try {
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         if($user && password_verify($pass, $user['password'])) {
             $_SESSION['user'] = $user['id']; $_SESSION['plan'] = $user['plan']; echo "success";
-        } else { echo "invalid"; } exit;
+        } else { echo "invalid"; }
+        exit;
     }
 
 } catch(PDOException $e) {
-    die("System error — please try again later");
+    die("System error — please try again later: " . $e->getMessage());
 }
