@@ -1,5 +1,10 @@
 <?php
-session_start();
+session_start();// ✅ HANDLE LOGOUT
+if(isset($_GET['logout'])) {
+    session_destroy();
+    header("Location: /auth.php");
+    exit;
+}
 define('STREAMCLEAN', true);
 include __DIR__ . '/../private/config.php';
 include 'brevo_mail.php';
