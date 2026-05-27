@@ -1,6 +1,5 @@
 <?php
 // ✅ LOAD SECRET CONFIG FROM PRIVATE FOLDER (SAFE METHOD)
-define('STREAMCLEAN', true);
 include __DIR__ . '/../private/config.php';
 
 /**
