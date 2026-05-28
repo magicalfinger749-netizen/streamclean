@@ -15,7 +15,7 @@ try {
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     
     // ✅ TIER DETECTION — matches your rules
-    $isPremium = ($user['is_subscribed'] == true || $user['plan'] === 'premium'); // matches your DB column
+  $isPremium = isset($_SESSION['user']['is_subscribed']) ? $_SESSION['user']['is_subscribed'] : false;  == true || $user['plan'] === 'premium'); // matches your DB column
     $totalStorageUsed = 0; // will load via JS now
 
 } catch(PDOException $e) {
@@ -131,6 +131,24 @@ try {
     </div>
 
     <!-- ✅ COMPRESSION LIBRARY -->
+    <script>
+// ✅ FIX DRAG & DROP — stops browser from opening image
+const dropZone = document.querySelector('.cyber-border-pink');
+if (dropZone) {
+  ['dragenter','dragover','dragleave','drop'].forEach(e => {
+    dropZone.addEventListener(e, ev => ev.preventDefault())
+  });
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (files.length) {
+      const input = document.getElementById('fileInput');
+      input.files = files;
+      startUpload(); // auto‑start upload after drop
+    }
+  });
+}
+</script>
     <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.0/dist/browser-image-compression.min.js"></script>
     <script>
         // ✅ USER DATA — EXACT AS BEFORE
