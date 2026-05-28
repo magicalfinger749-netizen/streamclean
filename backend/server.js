@@ -1,21 +1,24 @@
-const express = require('express');
-const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
-const axios = require('axios');
-const cors = require('cors');
-const bodyParser = require('body-parser');
-const { Pool } = require('pg');
+import express from 'express';
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import axios from 'axios';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import { Pool } from 'pg';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// ✅ DATABASE CONNECTION — KEEPS YOURS
+// ✅ DATABASE
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// ✅ CLOUDFLARE R2 — KEEPS YOUR EXACT SETTINGS
+// ✅ CLOUDFLARE R2
 const s3 = new S3Client({
   region: 'auto',
   endpoint: process.env.R2_ENDPOINT,
@@ -27,7 +30,7 @@ const s3 = new S3Client({
 const BUCKET_NAME = process.env.R2_BUCKET_NAME;
 const PUBLIC_URL = process.env.R2_PUBLIC_URL;
 
-// ✅ CREATE TABLE ON FIRST RUN
+// ✅ INIT DB
 app.post('/api/init-db', async (req, res) => {
   try {
     await pool.query(`
@@ -49,7 +52,7 @@ app.post('/api/init-db', async (req, res) => {
   }
 });
 
-// ✅ ORIGINAL UPLOAD — WORKS SAME AS BEFORE
+// ✅ ORIGINAL UPLOAD
 app.post('/api/get-upload-url', async (req, res) => {
   try {
     const { userId, fileName, fileType, fileSize } = req.body;
@@ -77,7 +80,7 @@ app.post('/api/get-upload-url', async (req, res) => {
   }
 });
 
-// ✅ LIST FILES — SAME
+// ✅ LIST FILES
 app.post('/api/list-files', async (req, res) => {
   try {
     const { userId } = req.body;
@@ -89,7 +92,7 @@ app.post('/api/list-files', async (req, res) => {
   }
 });
 
-// ✅ DELETE FILE — SAME
+// ✅ DELETE FILE
 app.post('/api/delete-file', async (req, res) => {
   try {
     const { userId, fileKey } = req.body;
@@ -102,13 +105,12 @@ app.post('/api/delete-file', async (req, res) => {
   }
 });
 
-// ✅ NEW: FETCH & UPLOAD FROM LINK — WHAT YOU NEEDED
+// ✅ NEW: FETCH FROM LINK
 app.post('/api/fetch-url', async (req, res) => {
   try {
     const { userId, fileUrl, isPremium } = req.body;
     if (!userId || !fileUrl) return res.status(400).json({ message: 'Missing data' });
 
-    // Download link into memory
     const response = await axios.get(fileUrl, {
       responseType: 'arraybuffer',
       maxRedirects: 5,
@@ -120,19 +122,16 @@ app.post('/api/fetch-url', async (req, res) => {
     const fileSize = buffer.length;
     const contentType = response.headers['content-type'] || 'application/octet-stream';
 
-    // Enforce FREE rules
     if (!isPremium) {
       if (!contentType.startsWith('image/')) return res.status(403).json({ message: 'Free: only images' });
       if (fileSize > 100 * 1024 * 1024) return res.status(403).json({ message: 'Free: max 100MB' });
     }
 
-    // Safe filename
     let fileName = fileUrl.split('/').pop().split('?')[0] || 'file';
     fileName = decodeURIComponent(fileName).replace(/[^a-zA-Z0-9._-]/g, '_');
     const fileKey = `${userId}/${Date.now()}_${fileName}`;
     const publicUrl = `${PUBLIC_URL}/${fileKey}`;
 
-    // Upload to R2
     await s3.send(new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: fileKey,
@@ -141,7 +140,6 @@ app.post('/api/fetch-url', async (req, res) => {
       ACL: 'public-read'
     }));
 
-    // Save to DB
     await pool.query(
       'INSERT INTO files (user_id, file_key, file_name, file_type, file_size, public_url) VALUES ($1, $2, $3, $4, $5, $6)',
       [userId, fileKey, fileName, contentType, fileSize, publicUrl]
