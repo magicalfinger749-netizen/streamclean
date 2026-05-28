@@ -10,7 +10,7 @@ session_start();
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
 
-        /* ✅ CYBERPUNK THEME EXACTLY AS YOU WANTED */
+        /* ✅ CYBERPUNK THEME */
         body { 
             background: #0a0a12; 
             color: #e0e0ff; 
@@ -287,6 +287,7 @@ session_start();
                 <li>Fast priority processing</li>
                 <li>Batch processing</li>
                 <li>Background removal</li>
+                <li>✅ Multi-select & bulk delete</li>
             </ul>
             <a href="/auth.php" class="btn w-full">UPGRADE</a>
         </div>
