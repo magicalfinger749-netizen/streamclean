@@ -15,7 +15,7 @@ try {
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     
     // ✅ TIER DETECTION — matches your rules
-  $isPremium = isset($_SESSION['user']['is_subscribed']) ? $_SESSION['user']['is_subscribed'] : false;  == true || $user['plan'] === 'premium'); // matches your DB column
+$isPremium = isset($user['is_subscribed']) ? $user['is_subscribed'] : ($user['plan'] === 'premium' ? true : false);
     $totalStorageUsed = 0; // will load via JS now
 
 } catch(PDOException $e) {
