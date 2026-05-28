@@ -136,141 +136,149 @@ try {
         // ✅ USER DATA — EXACT AS BEFORE
         const USER_ID = "<?= $_SESSION['user_id'] ?>";
         const USER_IS_PREMIUM = <?= $isPremium ? 'true' : 'false' ?>;
-        const API_URL = "/api"; // will connect to your Node.js backend
+      <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.0/dist/browser-image-compression.min.js"></script>
+<script>
+// ✅ USER DATA — EXACT AS BEFORE
+const USER_ID = "<?= $_SESSION['user_id'] ?>";
+const USER_IS_PREMIUM = <?= $isPremium ? 'true' : 'false' ?>;
+const API_URL = "https://streamclean-backend.onrender.com/api"; // ✅ YOUR BACKEND URL
+let selectedFiles = [];
 
-        let selectedFiles = [];
+// ✅ AUTO-CREATE DATABASE TABLE (NO TOOLS NEEDED)
+fetch(`${API_URL}/init-db`, { method: 'POST', cache: 'no-cache' })
+  .then(res => res.text())
+  .then(ok => console.log('DB Ready:', ok))
+  .catch(err => console.error('DB Setup:', err));
 
-        // ✅ UPLOAD FUNCTION — COMPRESSES IMAGES, CHECKS LIMITS, UPLOADS TO R2
-        async function startUpload() {
-            const input = document.getElementById('fileInput');
-            const file = input.files[0];
-            if (!file) return alert('Please select a file first');
+// ✅ UPLOAD FUNCTION — COMPRESSES IMAGES, CHECKS LIMITS, UPLOADS TO R2
+async function startUpload() {
+  const input = document.getElementById('fileInput');
+  const file = input.files[0];
+  if (!file) return alert('Please select a file first');
 
-            let finalFile = file;
+  let finalFile = file;
 
-            // ✅ COMPRESS ALL IMAGES (keeps quality, saves space)
-            if (file.type.startsWith('image/')) {
-                try {
-                    finalFile = await imageCompression(file, {
-                        maxSizeMB: 1,
-                        maxWidthOrHeight: 1920,
-                        useWebp: true,
-                        preserveExif: true
-                    });
-                } catch (err) {
-                    return alert('Image compression failed — try another photo');
-                }
-            }
+  // ✅ COMPRESS ALL IMAGES (keeps quality, saves space)
+  if (file.type.startsWith('image/')) {
+    try {
+      finalFile = await imageCompression(file, {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1920,
+        useWebp: true,
+        preserveExif: true
+      });
+    } catch (err) {
+      return alert('Image compression failed — try another photo');
+    }
+  }
 
-            try {
-                // 1. Ask backend for permission
-                const res = await fetch(`${API_URL}/get-upload-url`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        userId: USER_ID,
-                        fileName: file.name,
-                        fileType: finalFile.type,
-                        fileSize: finalFile.size
-                    })
-                });
+  try {
+    // 1. Ask backend for permission
+    const res = await fetch(`${API_URL}/get-upload-url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: USER_ID,
+        fileName: file.name,
+        fileType: finalFile.type,
+        fileSize: finalFile.size
+      })
+    });
 
-                const data = await res.json();
-                if (!res.ok) return alert(data.message || 'Upload blocked');
+    const data = await res.json();
+    if (!res.ok) return alert(data.message || 'Upload blocked');
 
-                // 2. Upload DIRECTLY to Cloudflare R2
-                await fetch(data.uploadUrl, {
-                    method: 'PUT',
-                    body: finalFile,
-                    headers: { 'Content-Type': finalFile.type }
-                });
+    // 2. Upload DIRECTLY to Cloudflare R2
+    await fetch(data.uploadUrl, {
+      method: 'PUT',
+      body: finalFile,
+      headers: { 'Content-Type': finalFile.type }
+    });
 
-                alert('✅ Upload complete!');
-                loadUserFiles(); // refresh list
+    alert('✅ Upload complete!');
+    loadUserFiles(); // refresh list
 
-            } catch (err) {
-                alert('❌ Upload failed: ' + err.message);
-            }
-        }
+  } catch (err) {
+    alert('❌ Upload failed: ' + err.message);
+  }
+}
 
-        // ✅ LOAD FILES FROM CLOUDFLARE R2 & SHOW IN YOUR EXACT GRID LAYOUT
-        async function loadUserFiles() {
-            const grid = document.getElementById('filesGrid');
-            try {
-                const res = await fetch(`${API_URL}/list-files?userId=${USER_ID}`);
-                const files = await res.json();
+// ✅ LOAD FILES FROM CLOUDFLARE R2 & SHOW IN YOUR EXACT GRID LAYOUT
+async function loadUserFiles() {
+  const grid = document.getElementById('filesGrid');
+  try {
+    const res = await fetch(`${API_URL}/list-files?userId=${USER_ID}`);
+    const files = await res.json();
 
-                if (files.length === 0) {
-                    grid.innerHTML = '<p class="text-gray-500 text-center py-8 col-span-full">No files yet — upload or import!</p>';
-                    return;
-                }
+    if (files.length === 0) {
+      grid.innerHTML = '<p class="text-gray-500 text-center py-8 col-span-full">No files yet — upload or import!</p>';
+      return;
+    }
 
-                grid.innerHTML = '';
-                files.forEach(f => {
-                    const card = document.createElement('div');
-                    card.className = 'file-card relative bg-dark/80 rounded overflow-hidden cyber-border hover:cyber-border-pink transition-all cursor-pointer group';
-                    card.dataset.key = f.fileKey;
+    grid.innerHTML = '';
+    files.forEach(f => {
+      const card = document.createElement('div');
+      card.className = 'file-card relative bg-dark/80 rounded overflow-hidden cyber-border hover:cyber-border-pink transition-all cursor-pointer group';
+      card.dataset.key = f.fileKey;
 
-                    card.innerHTML = `
-                        <input type="checkbox" class="absolute top-2 left-2 w-4 h-4 accent-neonPink z-10 opacity-70 group-hover:opacity-100" onchange="toggleSelect('${f.fileKey}', this.checked)">
-                        <div class="h-32 bg-card flex items-center justify-center overflow-hidden" onclick="openFullView('${f.publicUrl}', '${f.fileType}')">
-                            ${f.fileType.startsWith('image/') 
-                                ? `<img src="${f.publicUrl}" class="w-full h-full object-cover">` 
-                                : `<video controls class="w-full h-full object-cover" src="${f.publicUrl}"></video>`
-                            }
-                        </div>
-                        <div class="p-2 text-xs">
-                            <div class="truncate font-medium">${f.fileName}</div>
-                            <div class="text-gray-500 text-[10px]">${USER_IS_PREMIUM ? 'Unlimited' : 'Free'}</div>
-                        </div>
-                    `;
-                    grid.appendChild(card);
-                });
+      card.innerHTML = `
+        <input type="checkbox" class="absolute top-2 left-2 w-4 h-4 accent-neonPink z-10 opacity-70 group-hover:opacity-100" onchange="toggleSelect('${f.fileKey}', this.checked)">
+        <div class="h-32 bg-card flex items-center justify-center overflow-hidden" onclick="openFullView('${f.publicUrl}', '${f.fileType}')">
+          ${f.fileType.startsWith('image/') 
+            ? `<img src="${f.publicUrl}" class="w-full h-full object-cover">` 
+            : `<video controls class="w-full h-full object-cover" src="${f.publicUrl}"></video>`
+          }
+        </div>
+        <div class="p-2 text-xs">
+          <div class="truncate font-medium">${f.fileName}</div>
+          <div class="text-gray-500 text-[10px]">${USER_IS_PREMIUM ? 'Unlimited' : 'Free'}</div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
 
-            } catch (err) {
-                grid.innerHTML = '<p class="text-neonPink text-center py-8 col-span-full">Error loading files</p>';
-            }
-        }
+  } catch (err) {
+    grid.innerHTML = '<p class="text-neonPink text-center py-8 col-span-full">Error loading files</p>';
+  }
+}
 
-        function toggleSelect(key, checked) {
-            checked ? selectedFiles.push(key) : selectedFiles = selectedFiles.filter(k => k !== key);
-        }
+function toggleSelect(key, checked) {
+  checked ? selectedFiles.push(key) : selectedFiles = selectedFiles.filter(k => k !== key);
+}
 
-        async function deleteSelected() {
-            if (selectedFiles.length === 0) return alert('Select files first');
-            if (!confirm('Delete selected files?')) return;
+async function deleteSelected() {
+  if (selectedFiles.length === 0) return alert('Select files first');
+  if (!confirm('Delete selected files?')) return;
 
-            for (const key of selectedFiles) {
-                await fetch(`${API_URL}/delete-file`, {
-                    method: 'POST',
-                    headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({userId:USER_ID, fileKey:key})
-                });
-            }
-            selectedFiles = [];
-            loadUserFiles();
-        }
+  for (const key of selectedFiles) {
+    await fetch(`${API_URL}/delete-file`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({userId:USER_ID, fileKey:key})
+    });
+  }
+  selectedFiles = [];
+  loadUserFiles();
+}
 
-        function openFullView(url, type) {
-            const modal = document.getElementById('fullViewModal');
-            const content = document.getElementById('modalContent');
-            
-            content.innerHTML = type.startsWith('image/') 
-                ? `<img src="${url}" class="max-w-full max-h-[70vh] mx-auto rounded cyber-border">` 
-                : `<video controls class="max-w-full max-h-[70vh] mx-auto rounded cyber-border" src="${url}"></video>`;
-            
-            modal.classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
-        }
+function openFullView(url, type) {
+  const modal = document.getElementById('fullViewModal');
+  const content = document.getElementById('modalContent');
+  
+  content.innerHTML = type.startsWith('image/') 
+    ? `<img src="${url}" class="max-w-full max-h-[70vh] mx-auto rounded cyber-border">` 
+    : `<video controls class="max-w-full max-h-[70vh] mx-auto rounded cyber-border" src="${url}"></video>`;
+  
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
 
-        function closeModal() {
-            document.getElementById('fullViewModal').classList.add('hidden');
-            document.body.style.overflow = 'auto';
-        }
+function closeModal() {
+  document.getElementById('fullViewModal').classList.add('hidden');
+  document.body.style.overflow = 'auto';
+}
 
-        // ✅ LOAD ON PAGE START
-        loadUserFiles();
-    </script>
-
-</body>
+// ✅ LOAD ON PAGE START
+loadUserFiles();
+</script>
 </html>
