@@ -12,13 +12,13 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// ✅ DATABASE
+// ✅ DATABASE — EXACTLY YOURS
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// ✅ CLOUDFLARE R2
+// ✅ CLOUDFLARE R2 — EXACTLY YOURS
 const s3 = new S3Client({
   region: 'auto',
   endpoint: process.env.R2_ENDPOINT,
@@ -30,7 +30,7 @@ const s3 = new S3Client({
 const BUCKET_NAME = process.env.R2_BUCKET_NAME;
 const PUBLIC_URL = process.env.R2_PUBLIC_URL;
 
-// ✅ INIT DB
+// ✅ CREATE TABLE
 app.post('/api/init-db', async (req, res) => {
   try {
     await pool.query(`
@@ -52,7 +52,7 @@ app.post('/api/init-db', async (req, res) => {
   }
 });
 
-// ✅ ORIGINAL UPLOAD
+// ✅ ORIGINAL UPLOAD — WORKS SAME
 app.post('/api/get-upload-url', async (req, res) => {
   try {
     const { userId, fileName, fileType, fileSize } = req.body;
@@ -80,7 +80,7 @@ app.post('/api/get-upload-url', async (req, res) => {
   }
 });
 
-// ✅ LIST FILES
+// ✅ LIST FILES — SAME
 app.post('/api/list-files', async (req, res) => {
   try {
     const { userId } = req.body;
@@ -92,7 +92,7 @@ app.post('/api/list-files', async (req, res) => {
   }
 });
 
-// ✅ DELETE FILE
+// ✅ DELETE FILE — SAME
 app.post('/api/delete-file', async (req, res) => {
   try {
     const { userId, fileKey } = req.body;
@@ -105,7 +105,7 @@ app.post('/api/delete-file', async (req, res) => {
   }
 });
 
-// ✅ NEW: FETCH FROM LINK
+// ✅ NEW: FETCH LINK UPLOAD — NOW WORKS
 app.post('/api/fetch-url', async (req, res) => {
   try {
     const { userId, fileUrl, isPremium } = req.body;
