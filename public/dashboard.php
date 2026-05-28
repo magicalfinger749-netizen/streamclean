@@ -38,17 +38,13 @@ try {
         return $data;
     }
 
-    // ✅ SAFELY CREATE FOLDERS — NO ERRORS
-    function ensureDir($path) {
-        if (!file_exists($path)) {
-            @mkdir($path, 0755, true);
-        }
-        return $path;
+    // ✅ SAFE PATH — USE Render's allowed temp path
+    function getSafePath($userId, $filename) {
+        return sys_get_temp_dir() . "/streamclean_{$userId}_" . $filename;
     }
 
-    // ✅ UPLOAD HANDLER — FIXED PATHS
+    // ✅ UPLOAD HANDLER — FIXED FOR RENDER
     if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_FILES["file"])) {
-        $targetDir = ensureDir(__DIR__ . "/uploads/" . $_SESSION['user_id'] . "/");
         $fileName = basename($_FILES["file"]["name"]);
         $fileType = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
         $fileSize = $_FILES["file"]["size"];
@@ -68,14 +64,14 @@ try {
 
         if (!$error) {
             $newName = uniqid() . "." . $fileType;
-            $targetFile = $targetDir . $newName;
+            $targetFile = getSafePath($_SESSION['user_id'], $newName);
             
             if (move_uploaded_file($_FILES["file"]["tmp_name"], $targetFile)) {
                 $stmt = $pdo->prepare("INSERT INTO \"files\" (user_id, file_name, file_path, file_type, file_size) VALUES (?, ?, ?, ?, ?)");
-                $stmt->execute([$_SESSION['user_id'], $fileName, "uploads/" . $_SESSION['user_id'] . "/" . $newName, $isImage ? 'image' : 'video', $fileSize]);
+                $stmt->execute([$_SESSION['user_id'], $fileName, $targetFile, $isImage ? 'image' : 'video', $fileSize]);
                 header("Location: /dashboard.php?success=uploaded");
                 exit;
-            } else $error = "Upload failed — try again";
+            } else $error = "Upload failed — Render storage limit";
         }
         if ($error) {
             header("Location: /dashboard.php?error=" . urlencode($error));
@@ -83,11 +79,9 @@ try {
         }
     }
 
-    // ✅ IMPORT FROM URL — NOW WORKS 100%
+    // ✅ IMPORT FROM URL — NOW WORKS ON RENDER
     if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['import_url']) && !empty($_POST['import_url'])) {
         $url = trim($_POST['import_url']);
-        $targetDir = ensureDir(__DIR__ . "/uploads/" . $_SESSION['user_id'] . "/");
-
         $imageContent = downloadFile($url);
         if ($imageContent === false) {
             header("Location: /dashboard.php?error=" . urlencode("❌ Could not download — link invalid or blocked"));
@@ -100,11 +94,11 @@ try {
         if (empty($fileType)) $fileType = $isImage ? 'jpg' : 'mp4';
 
         $newName = uniqid() . "_imported." . $fileType;
-        $targetFile = $targetDir . $newName;
+        $targetFile = getSafePath($_SESSION['user_id'], $newName);
 
-        // ✅ SAVE FILE — NO ERRORS NOW
-        if (@file_put_contents($targetFile, $imageContent) === false) {
-            header("Location: /dashboard.php?error=" . urlencode("❌ Could not save — storage issue"));
+        // ✅ SAVE TO Render's allowed temp storage
+        if (file_put_contents($targetFile, $imageContent) === false) {
+            header("Location: /dashboard.php?error=" . urlencode("❌ Could not save — Render free plan blocks file storage. Upgrade or use external storage."));
             exit;
         }
         $fileSize = filesize($targetFile);
@@ -116,7 +110,7 @@ try {
         }
 
         $stmt = $pdo->prepare("INSERT INTO \"files\" (user_id, file_name, file_path, file_type, file_size) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$_SESSION['user_id'], $fileName, "uploads/" . $_SESSION['user_id'] . "/" . $newName, $isImage ? 'image' : 'video', $fileSize]);
+        $stmt->execute([$_SESSION['user_id'], $fileName, $targetFile, $isImage ? 'image' : 'video', $fileSize]);
 
         header("Location: /dashboard.php?success=imported");
         exit;
@@ -129,17 +123,16 @@ try {
         $original = $stmt->fetch();
         
         if ($original) {
-            $targetDir = ensureDir(__DIR__ . "/uploads/" . $_SESSION['user_id'] . "/");
             $newName = pathinfo($original['file_name'], PATHINFO_FILENAME) . '_edited_' . uniqid() . '.png';
-            $targetFile = $targetDir . $newName;
+            $targetFile = getSafePath($_SESSION['user_id'], $newName);
 
             $imageData = str_replace('data:image/png;base64,', '', $_POST['image_data']);
             $imageData = str_replace(' ', '+', $imageData);
             $decoded = base64_decode($imageData);
 
-            if ($decoded && @file_put_contents($targetFile, $decoded)) {
+            if ($decoded && file_put_contents($targetFile, $decoded)) {
                 $stmt = $pdo->prepare("INSERT INTO \"files\" (user_id, file_name, file_path, file_type, file_size) VALUES (?, ?, ?, ?, ?)");
-                $stmt->execute([$_SESSION['user_id'], $newName, "uploads/" . $_SESSION['user_id'] . "/" . $newName, 'image', filesize($targetFile)]);
+                $stmt->execute([$_SESSION['user_id'], $newName, $targetFile, 'image', filesize($targetFile)]);
                 header("Location: /dashboard.php?success=edited");
                 exit;
             }
@@ -156,7 +149,7 @@ try {
             $stmt->execute([$id, $_SESSION['user_id']]);
             $f = $stmt->fetch();
             if ($f) {
-                @unlink(__DIR__ . "/" . $f['file_path']);
+                @unlink($f['file_path']);
                 $pdo->prepare("DELETE FROM \"files\" WHERE id = ?")->execute([$id]);
                 $deleted++;
             }
@@ -235,8 +228,8 @@ try {
         <div class="mb-5 p-3 rounded bg-neonBlue/10 text-neonBlue cyber-border shadow-neon-blue text-center text-sm">
             <?php 
             $s = $_GET['success'];
-            if ($s === 'uploaded') echo "✅ File uploaded — stored on YOUR server";
-            if ($s === 'imported') echo "✅ Imported & saved — fully yours, no external links";
+            if ($s === 'uploaded') echo "✅ File uploaded — stored temporarily";
+            if ($s === 'imported') echo "✅ Imported & saved — stored temporarily";
             if ($s === 'deleted') echo "🗑️ Deleted " . (int)$_GET['count'] . " items";
             if ($s === 'edited') echo "✅ Edited image saved";
             ?>
@@ -282,9 +275,9 @@ try {
                         
                         <div class="h-32 bg-card flex items-center justify-center overflow-hidden" onclick="openFullView(this.parentElement)">
                             <?php if ($f['file_type'] === 'image'): ?>
-                                <img src="<?= htmlspecialchars($f['file_path']) ?>?t=<?= time() ?>" alt="" class="w-full h-full object-cover">
+                                <img src="data:image/jpeg;base64,<?= base64_encode(file_get_contents($f['file_path'])) ?>" alt="" class="w-full h-full object-cover">
                             <?php else: ?>
-                                <video src="<?= htmlspecialchars($f['file_path']) ?>?t=<?= time() ?>" class="w-full h-full object-cover" controls>Your browser does not support video</video>
+                                <video controls class="w-full h-full object-cover" src="data:video/mp4;base64,<?= base64_encode(file_get_contents($f['file_path'])) ?>">Video not supported</video>
                             <?php endif; ?>
                         </div>
 
@@ -386,11 +379,11 @@ try {
                     canvas.addEventListener('touchmove', function(e) { e.preventDefault(); draw(e.touches[0]); });
                     canvas.addEventListener('touchend', endDraw);
                 };
-                img.src = currentFilePath + '?t=' + Date.now();
+                img.src = 'data:image/jpeg;base64,' + '<?= base64_encode(file_get_contents($f['file_path'])) ?>';
             } else {
                 content.innerHTML = `
                     <h3 class="text-neonBlue text-lg font-bold mb-3 text-center">Video View</h3>
-                    <video src="${currentFilePath}?t=${Date.now()}" controls class="max-w-full max-h-[70vh] mx-auto rounded cyber-border shadow-neon-blue">Your browser does not support video</video>
+                    <video controls class="max-w-full max-h-[70vh] mx-auto rounded cyber-border shadow-neon-blue" src="data:video/mp4;base64,<?= base64_encode(file_get_contents($f['file_path'])) ?>">Video not supported</video>
                 `;
             }
 
