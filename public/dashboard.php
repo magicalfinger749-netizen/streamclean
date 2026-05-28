@@ -6,7 +6,6 @@ if (!isset($_SESSION['user_id'])) {
 }
 include __DIR__ . '/../private/config.php';
 
-// ✅ REQUIRE IMAGICK FOR PROCESSING
 if (!extension_loaded('imagick')) {
     define('USE_GD', true);
 } else {
@@ -17,13 +16,12 @@ try {
     $pdo = new PDO("pgsql:host=$host;dbname=$dbname", $user, $pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // Get user data
     $stmt = $pdo->prepare("SELECT * FROM \"users\" WHERE id = ? LIMIT 1");
     $stmt->execute([$_SESSION['user_id']]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     $isPremium = ($user['plan'] === 'premium' || $user['email'] === $OWNER_EMAIL);
 
-    // ✅ HANDLE UPLOAD — PC + PHONE (GALLERY/FILES)
+    // ✅ UPLOAD HANDLER
     if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_FILES["file"])) {
         $targetDir = "uploads/" . $_SESSION['user_id'] . "/";
         if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
@@ -38,13 +36,11 @@ try {
         $isVideo = in_array($fileType, $allowedVideos);
 
         $error = "";
-        // 👇 ONLY FREE HAS LIMITS — PREMIUM = NO LIMITS
         if ($user['plan'] === 'free') {
             if (!$isImage) $error = "Free plan: only images allowed";
             if ($fileSize > 2000000) $error = "Free plan: max 2MB per file";
         } else {
-            // ✅ PREMIUM: NO SIZE LIMIT, ANY FILE TYPE
-            if (!$isImage && !$isVideo) $error = "File type not supported — contact support";
+            if (!$isImage && !$isVideo) $error = "File type not supported";
         }
 
         if (!$error) {
@@ -56,51 +52,55 @@ try {
                 $stmt->execute([$_SESSION['user_id'], $fileName, $targetFile, $isImage ? 'image' : 'video', $fileSize]);
                 header("Location: /dashboard.php?success=uploaded");
                 exit;
-            } else $error = "Upload failed — file too big or server limit reached";
+            } else $error = "Upload failed — check server limits";
         }
         if ($error) header("Location: /dashboard.php?error=" . urlencode($error));
         exit;
     }
 
-    // ✅ IMPORT FROM URL — DOWNLOADS & SAVES TO YOUR SERVER
+    // ✅ IMPORT FROM URL — NOW ACTUALLY DOWNLOADS & SAVES TO YOUR SERVER
     if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['import_url']) && !empty($_POST['import_url'])) {
         $url = trim($_POST['import_url']);
         $targetDir = "uploads/" . $_SESSION['user_id'] . "/";
         if (!file_exists($targetDir)) mkdir($targetDir, 0777, true);
 
-        // Check if it's a real image
-        $valid = @getimagesize($url);
-        if (!$valid) {
-            header("Location: /dashboard.php?error=" . urlencode("❌ Not a valid image link"));
+        // Get image data DIRECTLY — NO REDIRECT
+        $imageContent = @file_get_contents($url);
+        if ($imageContent === false) {
+            header("Location: /dashboard.php?error=" . urlencode("❌ Could not download image — link may be invalid or blocked"));
             exit;
         }
 
-        // Get file details
+        // Verify it's an image
+        $valid = @getimagesizefromstring($imageContent);
+        if (!$valid) {
+            header("Location: /dashboard.php?error=" . urlencode("❌ That link is not a valid image"));
+            exit;
+        }
+
+        // Get file info
         $fileName = basename(parse_url($url, PHP_URL_PATH));
         $fileType = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-        if (!in_array($fileType, ['jpg','jpeg','png','gif','webp'])) $fileType = 'jpg';
-
-        // DOWNLOAD IMAGE TO YOUR SERVER (no external link now!)
-        $newName = uniqid() . "_imported." . $fileType;
-        $targetFile = $targetDir . $newName;
-        $imageContent = @file_get_contents($url);
-        
-        if ($imageContent === false) {
-            header("Location: /dashboard.php?error=" . urlencode("❌ Could not download image"));
-            exit;
+        if (!in_array($fileType, ['jpg','jpeg','png','gif','webp'])) {
+            $fileType = ($valid[2] == IMAGETYPE_PNG) ? 'png' : 'jpg';
+            $fileName = 'imported_' . uniqid() . '.' . $fileType;
         }
 
+        $newName = uniqid() . "_imported." . $fileType;
+        $targetFile = $targetDir . $newName;
+
+        // SAVE THE ACTUAL FILE TO YOUR SERVER
         file_put_contents($targetFile, $imageContent);
         $fileSize = filesize($targetFile);
 
-        // ✅ Premium: no size check, Free: still 2MB limit
+        // Free plan limit check
         if ($user['plan'] === 'free' && $fileSize > 2000000) {
             unlink($targetFile);
             header("Location: /dashboard.php?error=" . urlencode("❌ Free plan: max 2MB per file"));
             exit;
         }
 
-        // Save to database — now it's YOUR file
+        // Save to database — NOW IT'S YOUR FILE
         $stmt = $pdo->prepare("INSERT INTO \"files\" (user_id, file_name, file_path, file_type, file_size) VALUES (?, ?, ?, ?, ?)");
         $stmt->execute([$_SESSION['user_id'], $fileName, $targetFile, 'image', $fileSize]);
 
@@ -108,7 +108,34 @@ try {
         exit;
     }
 
-    // ✅ DELETE SELECTED FILES
+    // ✅ SAVE EDITED IMAGE
+    if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['save_edited_image'], $_POST['image_data'], $_POST['original_id'])) {
+        $stmt = $pdo->prepare("SELECT * FROM \"files\" WHERE id = ? AND user_id = ? LIMIT 1");
+        $stmt->execute([$_POST['original_id'], $_SESSION['user_id']]);
+        $original = $stmt->fetch();
+        
+        if ($original) {
+            $targetDir = "uploads/" . $_SESSION['user_id'] . "/";
+            $newName = pathinfo($original['file_name'], PATHINFO_FILENAME) . '_edited_' . uniqid() . '.png';
+            $targetFile = $targetDir . $newName;
+
+            // Decode base64 image data
+            $imageData = str_replace('data:image/png;base64,', '', $_POST['image_data']);
+            $imageData = str_replace(' ', '+', $imageData);
+            $decoded = base64_decode($imageData);
+
+            if ($decoded && file_put_contents($targetFile, $decoded)) {
+                $stmt = $pdo->prepare("INSERT INTO \"files\" (user_id, file_name, file_path, file_type, file_size) VALUES (?, ?, ?, ?, ?)");
+                $stmt->execute([$_SESSION['user_id'], $newName, $targetFile, 'image', filesize($targetFile)]);
+                header("Location: /dashboard.php?success=edited");
+                exit;
+            }
+        }
+        header("Location: /dashboard.php?error=" . urlencode("❌ Could not save edited image"));
+        exit;
+    }
+
+    // ✅ DELETE SELECTED
     if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['delete_selected']) && $isPremium && !empty($_POST['selected_files'])) {
         $deleted = 0;
         foreach ($_POST['selected_files'] as $id) {
@@ -122,138 +149,6 @@ try {
             }
         }
         header("Location: /dashboard.php?success=deleted&count=$deleted");
-        exit;
-    }
-
-    // ✅ EDIT TOOLS — ONLY WORKS IF YOU SELECT A PICTURE FIRST
-    if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['tool'], $_POST['selected_file'])) {
-        $stmt = $pdo->prepare("SELECT * FROM \"files\" WHERE id = ? AND user_id = ? LIMIT 1");
-        $stmt->execute([$_POST['selected_file'], $_SESSION['user_id']]);
-        $file = $stmt->fetch();
-        
-        if (!$file) {
-            header("Location: /dashboard.php?error=" . urlencode("❌ Select a picture first!"));
-            exit;
-        }
-
-        $originalPath = $file['file_path'];
-        $newName = pathinfo($file['file_name'], PATHINFO_FILENAME) . '_' . $_POST['tool'] . '.' . pathinfo($file['file_name'], PATHINFO_EXTENSION);
-        $newPath = 'uploads/' . $_SESSION['user_id'] . '/' . uniqid() . '_' . $newName;
-        $success = false;
-        $message = "";
-
-        switch ($_POST['tool']) {
-            case 'compress':
-                if ($file['file_type'] === 'image') {
-                    if (USE_GD) {
-                        $img = imagecreatefromstring(file_get_contents($originalPath));
-                        imagejpeg($img, $newPath, 75);
-                        imagedestroy($img);
-                    } else {
-                        $img = new Imagick($originalPath);
-                        $img->setImageCompressionQuality(75);
-                        $img->stripImage();
-                        $img->writeImage($newPath);
-                        $img->clear();
-                    }
-                    $success = true;
-                    $message = "✅ Image compressed";
-                } else $message = "❌ Only images can be compressed";
-                break;
-
-            case 'resize':
-                if ($file['file_type'] === 'image') {
-                    $width = 800; $height = 600;
-                    if (USE_GD) {
-                        list($w, $h) = getimagesize($originalPath);
-                        $img = imagecreatefromstring(file_get_contents($originalPath));
-                        $newImg = imagecreatetruecolor($width, $height);
-                        imagecopyresampled($newImg, $img, 0,0,0,0, $width,$height,$w,$h);
-                        imagejpeg($newImg, $newPath, 90);
-                        imagedestroy($img); imagedestroy($newImg);
-                    } else {
-                        $img = new Imagick($originalPath);
-                        $img->resizeImage($width, $height, Imagick::FILTER_LANCZOS, 1);
-                        $img->writeImage($newPath);
-                        $img->clear();
-                    }
-                    $success = true;
-                    $message = "✅ Image resized to 800×600";
-                } else $message = "❌ Only images can be resized";
-                break;
-
-            case 'convert':
-                $newExt = 'webp';
-                $newName = pathinfo($file['file_name'], PATHINFO_FILENAME) . '_converted.' . $newExt;
-                $newPath = 'uploads/' . $_SESSION['user_id'] . '/' . uniqid() . '_' . $newName;
-                if ($file['file_type'] === 'image') {
-                    if (USE_GD) {
-                        $img = imagecreatefromstring(file_get_contents($originalPath));
-                        imagewebp($img, $newPath, 80);
-                        imagedestroy($img);
-                    } else {
-                        $img = new Imagick($originalPath);
-                        $img->setImageFormat('webp');
-                        $img->writeImage($newPath);
-                        $img->clear();
-                    }
-                    $success = true;
-                    $message = "✅ Converted to WebP";
-                } else $message = "❌ Only images can be converted";
-                break;
-
-            case 'removebg':
-                if ($isPremium && $file['file_type'] === 'image') {
-                    if (!USE_GD) {
-                        $img = new Imagick($originalPath);
-                        $img->setImageBackgroundColor('transparent');
-                        $img->transparentPaintImage('white', 0, 1000, false);
-                        $img->setImageFormat('png');
-                        $newPath = 'uploads/' . $_SESSION['user_id'] . '/' . uniqid() . '_nobg.png';
-                        $img->writeImage($newPath);
-                        $img->clear();
-                        $success = true;
-                        $message = "✅ Background removed";
-                    } else $message = "⚠️ Advanced processing needs full server";
-                } else $message = "🔒 Premium only: Remove Background";
-                break;
-
-            case 'enhance':
-                if ($isPremium && $file['file_type'] === 'image') {
-                    if (!USE_GD) {
-                        $img = new Imagick($originalPath);
-                        $img->sharpenImage(2, 1);
-                        $img->modulateImage(110, 110, 100);
-                        $img->writeImage($newPath);
-                        $img->clear();
-                        $success = true;
-                        $message = "✅ Image enhanced";
-                    } else $message = "⚠️ Advanced processing needs full server";
-                } else $message = "🔒 Premium only: AI Enhance";
-                break;
-
-            case 'trim':
-                if ($isPremium && $file['file_type'] === 'video') {
-                    if (function_exists('exec')) {
-                        $newPath = 'uploads/' . $_SESSION['user_id'] . '/' . uniqid() . '_trimmed.mp4';
-                        $cmd = "ffmpeg -i " . escapeshellarg($originalPath) . " -t 10 -c copy " . escapeshellarg($newPath) . " 2>&1";
-                        exec($cmd, $out, $ret);
-                        if ($ret === 0 && file_exists($newPath)) {
-                            $success = true;
-                            $message = "✅ Video trimmed to 10s";
-                        } else $message = "⚠️ Video processing enabled — works on full servers";
-                    } else $message = "⚠️ Enable exec on server for video tools";
-                } else $message = "🔒 Premium only: Video Trim";
-                break;
-        }
-
-        if ($success) {
-            $stmt = $pdo->prepare("INSERT INTO \"files\" (user_id, file_name, file_path, file_type, file_size) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$_SESSION['user_id'], $newName, $newPath, $file['file_type'], filesize($newPath)]);
-            header("Location: /dashboard.php?success=tool&msg=" . urlencode($message));
-        } else {
-            header("Location: /dashboard.php?error=" . urlencode($message));
-        }
         exit;
     }
 
@@ -278,204 +173,297 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Dashboard - StreamClean</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
-        body { background: #0a0a12; color: #e0e0ff; line-height: 1.6; background-image: linear-gradient(45deg, #0a0a12 0%, #120a20 100%); min-height: 100vh; -webkit-font-smoothing: antialiased; }
-
-        .header { background: rgba(10,10,18,0.8); backdrop-filter: blur(10px); border-bottom: 1px solid #00f0ff40; box-shadow: 0 0 20px #00f0ff30; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; flex-wrap: wrap; gap:8px; }
-        .logo { font-size:18px; font-weight:bold; color:#00f0ff; text-shadow:0 0 8px #00f0ff; text-decoration:none; }
-        .user-area { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-        .plan-badge { padding:3px 10px; border-radius:12px; font-size:11px; font-weight:500; text-transform:uppercase; }
-        .plan-free { background:#303060; color:#c0c0ff; border:1px solid #00f0ff40; }
-        .plan-premium { background:linear-gradient(45deg,#00f0ff,#0088ff); color:#000; box-shadow:0 0 8px #00f0ff60; }
-        .logout { color:#c0c0ff; text-decoration:none; font-size:13px; }
-        .logout:hover { color:#ff00ff; text-shadow:0 0 6px #ff00ff; }
-
-        .container { max-width:1400px; margin:20px auto; padding:0 16px; }
-        .alert { padding:12px 16px; border-radius:6px; margin-bottom:16px; font-size:14px; text-align:center; }
-        .alert.success { background:rgba(0,240,255,0.1); color:#00f0ff; border:1px solid #00f0ff; box-shadow:0 0 10px #00f0ff30; }
-        .alert.error { background:rgba(255,0,255,0.1); color:#ff00ff; border:1px solid #ff00ff; box-shadow:0 0 10px #ff00ff30; }
-
-        .card { background:rgba(20,20,40,0.6); border:1px solid #00f0ff30; border-radius:8px; box-shadow:0 0 15px #00f0ff20; padding:16px; margin-bottom:20px; backdrop-filter:blur(5px); }
-        .card h2 { font-size:16px; font-weight:600; margin-bottom:12px; color:#00f0ff; text-shadow:0 0 6px #00f0ff50; text-transform:uppercase; }
-
-        .upload-area { border:2px dashed #00f0ff60; border-radius:8px; padding:30px 16px; text-align:center; cursor:pointer; background:rgba(10,10,18,0.4); margin-bottom:12px; }
-        .upload-area:hover { border-color:#ff00ff; box-shadow:0 0 20px #ff00ff30; }
-        input[type="file"] { display:none; accept:"image/*,video/*"; }
-        .import-url { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
-        .import-url input { flex:1; min-width:200px; padding:10px 14px; background:rgba(10,10,18,0.8); border:1px solid #00f0ff40; border-radius:4px; color:#fff; }
-
-        .btn { background:linear-gradient(45deg,#00f0ff,#0088ff); color:#000; border:none; padding:10px 16px; border-radius:4px; font-size:14px; font-weight:600; cursor:pointer; transition:all 0.3s; text-decoration:none; display:inline-block; text-transform:uppercase; box-shadow:0 0 12px #00f0ff60; width:100%; text-align:center; }
-        .btn:hover { transform:translateY(-2px); box-shadow:0 0 20px #00f0ff90; }
-        .btn.secondary { background:transparent; color:#00f0ff; border:1px solid #00f0ff; box-shadow:0 0 8px #00f0ff40; }
-        .btn.secondary:hover { background:rgba(0,240,255,0.1); }
-        .btn.premium { background:linear-gradient(45deg,#ff00ff,#b000ff); box-shadow:0 0 12px #ff00ff60; }
-        .btn.premium:hover { box-shadow:0 0 20px #ff00ff90; }
-        .btn:disabled { background:#303060; color:#8080c0; box-shadow:none; cursor:not-allowed; transform:none; }
-
-        .file-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; max-height:700px; overflow-y:auto; padding-right:4px; }
-        .file-grid::-webkit-scrollbar { width:6px; }
-        .file-grid::-webkit-scrollbar-track { background:#1a1a2e; border-radius:4px; }
-        .file-grid::-webkit-scrollbar-thumb { background:#00f0ff40; border-radius:4px; }
-        .file-grid::-webkit-scrollbar-thumb:hover { background:#ff00ff60; }
-
-        .file-card { background:rgba(10,10,18,0.8); border-radius:6px; overflow:hidden; border:1px solid #00f0ff20; transition:all 0.2s; position:relative; cursor:pointer; }
-        .file-card.selected { border-color:#ff00ff; box-shadow:0 0 15px #ff00ff60; transform:scale(1.02); }
-        .file-card:hover { border-color:#ff00ff; transform:translateY(-3px); }
-        .file-preview { height:120px; background:#1a1a2e; display:flex; align-items:center; justify-content:center; font-size:20px; color:#00f0ff80; overflow:hidden; }
-        .file-preview img, .file-preview video { width:100%; height:100%; object-fit:cover; }
-        .file-info { padding:8px; }
-        .file-name { font-size:12px; font-weight:500; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .file-meta { font-size:10px; color:#8080c0; }
-        .file-checkbox { position:absolute; top:6px; left:6px; width:18px; height:18px; accent-color:#ff00ff; box-shadow:0 0 6px #ff00ff60; }
-
-        .tools-section { margin-top:20px; }
-        .tools-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; }
-        .selected-info { padding:10px; background:rgba(255,0,255,0.1); border:1px solid #ff00ff30; border-radius:4px; margin-bottom:12px; text-align:center; font-size:14px; }
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: '#0A0A12',
+                        card: '#141428',
+                        neonBlue: '#00F0FF',
+                        neonPink: '#FF00FF',
+                    },
+                    boxShadow: {
+                        'neon-blue': '0 0 15px rgba(0, 240, 255, 0.4)',
+                        'neon-pink': '0 0 15px rgba(255, 0, 255, 0.4)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto { content-visibility: auto; }
+            .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+            .scrollbar-hide::-webkit-scrollbar { display: none; }
+            .cyber-border { border: 1px solid rgba(0, 240, 255, 0.3); }
+            .cyber-border-pink { border: 1px solid rgba(255, 0, 255, 0.3); }
+        }
     </style>
 </head>
-<body>
+<body class="bg-gradient-to-br from-dark to-[#120A20] text-gray-200 min-h-screen">
 
-    <div class="header">
-        <a href="/dashboard.php" class="logo">STREAMCLEAN</a>
-        <div class="user-area">
-            <span style="font-size:12px;"><?php echo htmlspecialchars($user['email']); ?></span>
-            <span class="plan-badge <?php echo $isPremium ? 'plan-premium' : 'plan-free'; ?>">
-                <?php echo $isPremium ? 'PREMIUM • UNLIMITED' : 'FREE • 2MB MAX'; ?>
+    <!-- HEADER -->
+    <header class="sticky top-0 z-50 bg-dark/80 backdrop-blur-md cyber-border shadow-neon-blue px-4 py-3 flex flex-wrap justify-between items-center gap-2">
+        <a href="/dashboard.php" class="text-neonBlue font-bold text-xl tracking-wider" style="text-shadow: 0 0 8px #00F0FF;">STREAMCLEAN</a>
+        <div class="flex items-center gap-3 flex-wrap">
+            <span class="text-xs text-gray-400 hidden sm:inline"><?= htmlspecialchars($user['email']) ?></span>
+            <span class="px-3 py-1 rounded-full text-xs font-bold uppercase <?= $isPremium ? 'bg-gradient-to-r from-neonBlue to-blue-500 text-black shadow-neon-blue' : 'bg-card cyber-border text-neonBlue' ?>">
+                <?= $isPremium ? 'Premium • Unlimited' : 'Free • 2MB Max' ?>
             </span>
-            <a href="/auth.php?logout=1" class="logout">LOGOUT</a>
+            <a href="/auth.php?logout=1" class="text-gray-300 hover:text-neonPink transition-colors text-sm">Logout</a>
         </div>
-    </div>
+    </header>
 
-    <div class="container">
+    <div class="container mx-auto px-3 py-5 max-w-7xl">
+
+        <!-- ALERTS -->
         <?php if (isset($_GET['success'])): ?>
-            <div class="alert success">
-                <?php
-                $s = $_GET['success'];
-                if ($s === 'uploaded') echo "✅ File uploaded successfully";
-                if ($s === 'imported') echo "✅ Image imported & saved to your account";
-                if ($s === 'deleted') echo "🗑️ Deleted " . (int)$_GET['count'] . " items";
-                if ($s === 'tool') echo "🛠️ " . htmlspecialchars($_GET['msg']);
-                ?>
-            </div>
+        <div class="mb-5 p-3 rounded bg-neonBlue/10 text-neonBlue cyber-border shadow-neon-blue text-center text-sm">
+            <?php 
+            $s = $_GET['success'];
+            if ($s === 'uploaded') echo "✅ File uploaded successfully";
+            if ($s === 'imported') echo "✅ Image imported & saved to your account (now stored on YOUR server)";
+            if ($s === 'deleted') echo "🗑️ Deleted " . (int)$_GET['count'] . " items";
+            if ($s === 'edited') echo "✅ Edited image saved as new file";
+            ?>
+        </div>
         <?php endif; ?>
         <?php if (isset($_GET['error'])): ?>
-            <div class="alert error"><?php echo htmlspecialchars($_GET['error']); ?></div>
+        <div class="mb-5 p-3 rounded bg-neonPink/10 text-neonPink cyber-border-pink shadow-neon-pink text-center text-sm">
+            <?= htmlspecialchars($_GET['error']) ?>
+        </div>
         <?php endif; ?>
 
-        <!-- UPLOAD + IMPORT -->
-        <div class="card">
-            <h2>Upload or Import</h2>
-            <form method="POST" enctype="multipart/form-data">
-                <label class="upload-area" for="fileInput">
-                    <div>
-                        <p style="font-weight:500; margin-bottom:8px; font-size:15px;">📱📂 Tap / Click to Upload</p>
-                        <p style="font-size:12px; color:#8080c0;">
-                            <?php echo $isPremium ? 'PREMIUM: Images + Videos • <strong>UNLIMITED SIZE</strong>' : 'FREE: Images only • Max 2MB'; ?>
-                        </p>
-                    </div>
-                    <input type="file" id="fileInput" name="file" required>
+        <!-- UPLOAD & IMPORT -->
+        <div class="bg-card/60 backdrop-blur-sm cyber-border rounded-lg p-4 mb-6 shadow-neon-blue/20">
+            <h2 class="text-neonBlue font-semibold mb-4 uppercase text-sm tracking-wider">Upload or Import</h2>
+
+            <!-- UPLOAD -->
+            <form method="POST" enctype="multipart/form-data" class="mb-4">
+                <label for="fileInput" class="block border-2 border-dashed border-neonBlue/60 rounded-lg p-5 text-center cursor-pointer hover:border-neonPink hover:shadow-neon-pink transition-all bg-dark/40">
+                    <p class="font-medium mb-1">📱📂 Tap / Click to Upload</p>
+                    <p class="text-xs text-gray-400"><?= $isPremium ? 'Premium: Images + Videos • UNLIMITED SIZE' : 'Free: Images only • Max 2MB' ?></p>
                 </label>
-                <button type="submit" class="btn">📤 UPLOAD NOW</button>
+                <input type="file" id="fileInput" name="file" class="hidden" accept="image/*,video/*" required>
+                <button type="submit" class="w-full mt-3 bg-gradient-to-r from-neonBlue to-blue-500 text-black font-bold py-2 px-4 rounded hover:shadow-neon-blue transition-shadow">📤 UPLOAD NOW</button>
             </form>
 
-            <form method="POST" class="import-url">
-                <input type="url" name="import_url" placeholder="Paste image link from any website..." required>
-                <button type="submit" class="btn secondary">IMPORT & SAVE</button>
+            <!-- IMPORT FROM URL - NOW SAVES DIRECTLY -->
+            <form method="POST" class="flex flex-col sm:flex-row gap-2">
+                <input type="url" name="import_url" placeholder="Paste image link... will be saved directly to your account" class="flex-1 bg-dark/80 cyber-border rounded px-3 py-2 text-sm focus:border-neonBlue outline-none" required>
+                <button type="submit" class="cyber-border text-neonBlue px-4 py-2 rounded hover:bg-neonBlue/10 transition-colors whitespace-nowrap">💾 IMPORT & SAVE</button>
             </form>
         </div>
 
-        <!-- FILES LIBRARY -->
-        <div class="card">
-            <h2>Your Files <?php if ($isPremium) echo '(Multi-select enabled • Unlimited Storage)'; ?></h2>
+        <!-- FILES GRID -->
+        <div class="bg-card/60 backdrop-blur-sm cyber-border rounded-lg p-4 mb-6 shadow-neon-blue/20">
+            <h2 class="text-neonBlue font-semibold mb-4 uppercase text-sm tracking-wider">Your Files <?= $isPremium ? '(Multi-select • Unlimited)' : '' ?></h2>
+
             <?php if (empty($files)): ?>
-                <p style="color:#8080c0; padding:24px 0; text-align:center;">No files yet — upload or import your first!</p>
+                <p class="text-gray-500 text-center py-8">No files yet — upload or import your first!</p>
             <?php else: ?>
-                <form method="POST" id="mainForm">
-                    <div class="file-grid">
-                        <?php foreach ($files as $f): ?>
-                            <div class="file-card" onclick="selectFile(<?php echo $f['id']; ?>, event)">
-                                <input type="checkbox" name="selected_files[]" value="<?php echo $f['id']; ?>" class="file-checkbox" id="file-<?php echo $f['id']; ?>">
-                                <div class="file-preview">
-                                    <?php if ($f['file_type'] === 'image'): ?>
-                                        <img src="<?php echo htmlspecialchars($f['file_path']); ?>" alt="">
-                                    <?php else: ?>
-                                        <video src="<?php echo htmlspecialchars($f['file_path']); ?>" controls></video>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="file-info">
-                                    <div class="file-name"><?php echo htmlspecialchars($f['file_name']); ?></div>
-                                    <div class="file-meta"><?php echo $isPremium ? 'Unlimited' : round($f['file_size']/1024/1024,1).' MB'; ?></div>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
+            <form method="POST" id="mainForm">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[700px] overflow-y-auto pr-1 scrollbar-hide">
+                    <?php foreach ($files as $f): ?>
+                    <div class="file-card relative bg-dark/80 rounded overflow-hidden cyber-border hover:cyber-border-pink hover:shadow-neon-pink transition-all cursor-pointer group" 
+                         data-id="<?= $f['id'] ?>" data-type="<?= $f['file_type'] ?>" data-path="<?= htmlspecialchars($f['file_path']) ?>">
+                        
+                        <input type="checkbox" name="selected_files[]" value="<?= $f['id'] ?>" class="absolute top-2 left-2 w-4 h-4 accent-neonPink z-10 opacity-70 group-hover:opacity-100">
+                        
+                        <!-- PREVIEW -->
+                        <div class="h-32 bg-card flex items-center justify-center overflow-hidden" onclick="openFullView(this.parentElement)">
+                            <?php if ($f['file_type'] === 'image'): ?>
+                                <img src="<?= htmlspecialchars($f['file_path']) ?>" alt="" class="w-full h-full object-cover">
+                            <?php else: ?>
+                                <video src="<?= htmlspecialchars($f['file_path']) ?>" class="w-full h-full object-cover" controls></video>
+                            <?php endif; ?>
+                        </div>
+
+                        <div class="p-2 text-xs">
+                            <div class="truncate font-medium"><?= htmlspecialchars($f['file_name']) ?></div>
+                            <div class="text-gray-500 text-[10px]"><?= $isPremium ? 'Unlimited' : round($f['file_size']/1024/1024, 1).' MB' ?></div>
+                        </div>
                     </div>
+                    <?php endforeach; ?>
+                </div>
 
-                    <?php if ($isPremium): ?>
-                        <button type="submit" name="delete_selected" class="btn premium" style="margin-top:12px;">🗑️ DELETE SELECTED</button>
-                    <?php endif; ?>
-
-                    <!-- HIDDEN INPUT FOR EDIT TOOLS -->
-                    <input type="hidden" name="selected_file" id="selectedFileInput" value="">
-                </form>
+                <?php if ($isPremium): ?>
+                <button type="submit" name="delete_selected" class="mt-4 w-full bg-gradient-to-r from-neonPink to-purple-600 text-black font-bold py-2 rounded hover:shadow-neon-pink transition-shadow">🗑️ DELETE SELECTED</button>
+                <?php endif; ?>
+            </form>
             <?php endif; ?>
         </div>
 
-        <!-- EDIT TOOLS -- NOW YOU MUST SELECT A PICTURE FIRST -->
-        <div class="card tools-section">
-            <h2>Edit Tools</h2>
-            <div id="selectedStatus" class="selected-info">⚠️ Select a picture above first to use tools</div>
-            <div class="tools-grid">
-                <form method="POST" style="display:contents;">
-                    <input type="hidden" name="tool" value="compress">
-                    <button type="submit" class="btn secondary tool-btn" disabled>Compress Image</button>
-                </form>
-                <form method="POST" style="display:contents;">
-                    <input type="hidden" name="tool" value="resize">
-                    <button type="submit" class="btn secondary tool-btn" disabled>Resize</button>
-                </form>
-                <form method="POST" style="display:contents;">
-                    <input type="hidden" name="tool" value="convert">
-                    <button type="submit" class="btn secondary tool-btn" disabled>Convert Format</button>
-                </form>
-                <form method="POST" style="display:contents;">
-                    <input type="hidden" name="tool" value="removebg">
-                    <button type="submit" class="btn premium tool-btn" <?php echo $isPremium ? '' : 'disabled'; ?>>Remove Background</button>
-                </form>
-                <form method="POST" style="display:contents;">
-                    <input type="hidden" name="tool" value="enhance">
-                    <button type="submit" class="btn premium tool-btn" <?php echo $isPremium ? '' : 'disabled'; ?>>AI Enhance</button>
-                </form>
-                <form method="POST" style="display:contents;">
-                    <input type="hidden" name="tool" value="trim">
-                    <button type="submit" class="btn premium tool-btn" <?php echo $isPremium ? '' : 'disabled'; ?>>Video Trim</button>
-                </form>
+    </div>
+
+    <!-- ✅ FULL SCREEN VIEW + FULL EDITOR MODAL -->
+    <div id="fullViewModal" class="fixed inset-0 z-[999] bg-black/90 backdrop-blur-md hidden flex-col items-center justify-center p-4 overflow-y-auto">
+        <div class="w-full max-w-5xl bg-card cyber-border rounded-lg shadow-neon-blue relative">
+            <button onclick="closeModal()" class="absolute -top-3 -right-3 bg-neonPink text-black rounded-full w-8 h-8 flex items-center justify-center font-bold z-10">×</button>
+            
+            <div id="modalContent" class="p-4">
+                <!-- Content loads here -->
             </div>
         </div>
-
     </div>
 
     <script>
-        let selectedFileId = null;
+        let currentFileId = null;
+        let currentFileType = null;
+        let currentFilePath = null;
+        let isDrawing = false;
+        let ctx, canvas;
+        let currentTool = 'pen';
+        let currentColor = '#FF0000';
+        let currentSize = 5;
 
-        function selectFile(id, e) {
-            const card = e.currentTarget;
-            const checkbox = card.querySelector('input[type="checkbox"]');
-            
-            // Only select ONE file for editing
-            if (!e.target.classList.contains('file-checkbox')) {
-                // Unselect all
-                document.querySelectorAll('.file-card').forEach(c => c.classList.remove('selected'));
-                document.querySelectorAll('.file-checkbox').forEach(cb => cb.checked = false);
-                // Select this one
-                card.classList.add('selected');
-                checkbox.checked = true;
-                selectedFileId = id;
-                document.getElementById('selectedFileInput').value = id;
-                document.getElementById('selectedStatus').textContent = "✅ Selected file ready to edit";
-                document.querySelectorAll('.tool-btn').forEach(btn => btn.disabled = false);
+        // Open full view
+        function openFullView(card) {
+            currentFileId = card.dataset.id;
+            currentFileType = card.dataset.type;
+            currentFilePath = card.dataset.path;
+            const modal = document.getElementById('fullViewModal');
+            const content = document.getElementById('modalContent');
+
+            if (currentFileType === 'image') {
+                content.innerHTML = `
+                    <div class="text-center mb-4">
+                        <h3 class="text-neonBlue text-lg font-bold mb-2">Full Image Editor</h3>
+                        <div class="flex flex-wrap gap-2 justify-center mb-4 p-2 bg-dark/60 rounded cyber-border">
+                            <button onclick="setTool('pen')" class="tool-btn bg-neonBlue/20 text-neonBlue px-3 py-1 rounded text-sm hover:bg-neonBlue/40">Pen</button>
+                            <button onclick="setTool('brush')" class="tool-btn bg-neonBlue/20 text-neonBlue px-3 py-1 rounded text-sm hover:bg-neonBlue/40">Brush</button>
+                            <button onclick="setTool('eraser')" class="tool-btn bg-neonBlue/20 text-neonBlue px-3 py-1 rounded text-sm hover:bg-neonBlue/40">Eraser</button>
+                            <button onclick="addText()" class="tool-btn bg-neonBlue/20 text-neonBlue px-3 py-1 rounded text-sm hover:bg-neonBlue/40">Add Text</button>
+                            <button onclick="setTool('rectangle')" class="tool-btn bg-neonBlue/20 text-neonBlue px-3 py-1 rounded text-sm hover:bg-neonBlue/40">Cover Box</button>
+                            
+                            <select onchange="setColor(this.value)" class="bg-dark cyber-border rounded px-2 py-1 text-sm">
+                                <option value="#FF0000">Red</option>
+                                <option value="#00FF00">Green</option>
+                                <option value="#0000FF">Blue</option>
+                                <option value="#FFFFFF">White</option>
+                                <option value="#000000">Black</option>
+                                <option value="#FF00FF">Pink</option>
+                            </select>
+                            
+                            <input type="range" min="1" max="50" value="5" onchange="setSize(this.value)" class="w-24">
+                            <span class="text-xs">Size: <span id="sizeVal">5</span></span>
+
+                            <button onclick="clearCanvas()" class="bg-neonPink/20 text-neonPink px-3 py-1 rounded text-sm hover:bg-neonPink/40">Clear All</button>
+                        </div>
+                    </div>
+                    <div class="flex justify-center mb-4 bg-dark/40 rounded p-2">
+                        <canvas id="editCanvas" class="max-w-full max-h-[60vh] border border-neonBlue/30 rounded"></canvas>
+                    </div>
+                    <form method="POST" class="text-center">
+                        <input type="hidden" name="save_edited_image" value="1">
+                        <input type="hidden" name="image_data" id="imageData">
+                        <input type="hidden" name="original_id" value="${currentFileId}">
+                        <button type="submit" onclick="prepareSave()" class="bg-gradient-to-r from-neonBlue to-blue-500 text-black font-bold py-2 px-6 rounded hover:shadow-neon-blue">💾 SAVE AS NEW IMAGE</button>
+                    </form>
+                `;
+                
+                // Initialize canvas
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = function() {
+                    canvas = document.getElementById('editCanvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    
+                    // Drawing events
+                    canvas.addEventListener('mousedown', startDraw);
+                    canvas.addEventListener('mousemove', draw);
+                    canvas.addEventListener('mouseup', endDraw);
+                    canvas.addEventListener('mouseout', endDraw);
+                    
+                    // Touch support
+                    canvas.addEventListener('touchstart', function(e) { e.preventDefault(); startDraw(e.touches[0]); });
+                    canvas.addEventListener('touchmove', function(e) { e.preventDefault(); draw(e.touches[0]); });
+                    canvas.addEventListener('touchend', endDraw);
+                };
+                img.src = currentFilePath + '?t=' + Date.now(); // Bypass cache
+            } else {
+                content.innerHTML = `
+                    <h3 class="text-neonBlue text-lg font-bold mb-3 text-center">Video View</h3>
+                    <video src="${currentFilePath}" controls class="max-w-full max-h-[70vh] mx-auto rounded cyber-border shadow-neon-blue"></video>
+                `;
+            }
+
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        // Editor functions
+        function setTool(tool) { currentTool = tool; document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('bg-neonBlue/40')); event.target.classList.add('bg-neonBlue/40'); }
+        function setColor(col) { currentColor = col; }
+        function setSize(s) { currentSize = parseInt(s); document.getElementById('sizeVal').textContent = s; }
+        function clearCanvas() { if(ctx && confirm('Clear all edits?')) { const img = new Image(); img.src = currentFilePath; img.onload = () => ctx.drawImage(img,0,0); } }
+        
+        function addText() {
+            const text = prompt('Enter text to add:');
+            if(text && ctx) {
+                ctx.font = `${currentSize*2}px Arial`;
+                ctx.fillStyle = currentColor;
+                ctx.fillText(text, 50, 50);
             }
         }
+
+        function startDraw(e) {
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        function draw(e) {
+            if(!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+            
+            ctx.lineWidth = currentSize;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            if(currentTool === 'eraser') {
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.strokeStyle = 'rgba(0,0,0,1)';
+            } else {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.strokeStyle = currentColor;
+            }
+
+            if(currentTool === 'rectangle') {
+                ctx.fillStyle = currentColor;
+                ctx.fillRect(x - 25, y - 15, 50, 30);
+            } else {
+                ctx.lineTo(x, y);
+                ctx.stroke();
+            }
+        }
+
+        function endDraw() { isDrawing = false; }
+
+        function prepareSave() {
+            document.getElementById('imageData').value = canvas.toDataURL('image/png');
+        }
+
+        function closeModal() {
+            document.getElementById('fullViewModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        // Close on outside click
+        document.getElementById('fullViewModal').addEventListener('click', function(e) {
+            if(e.target === this) closeModal();
+        });
     </script>
 
 </body>
